@@ -72,6 +72,12 @@ itself, so `lines.*` with nothing after it **MUST** be processed exactly as `lin
 of strings, is selected whole by its name. JSON:API member names contain no asterisk, so
 `*` never collides with a key.
 
+An object may take one of several forms, each with its own members, such as a hero that is
+an image or a video, or the blocks of text and images in a list. A server **MAY** let a
+client select from such an object wherever it appears, deciding for each form which of its
+members a client may select. A key is accepted when the server lets a client select it
+from one of the forms, and a path continues inside the forms that accept it.
+
 A key member addresses no single item. A segment after a list that is not `*`, such as
 the index in `lines.0`, is not part of this profile.
 
@@ -147,6 +153,21 @@ GET /orders?fields[orders]=lines.*.sku
 }
 ```
 
+An object that takes one of several forms, on its own or as an item of a list, **MUST** be
+rendered holding only the selected members the server lets a client select from its form,
+by the rules above, and the member that names its form, when the form is named by a
+member:
+
+```http
+GET /pages?fields[pages]=blocks.*.title
+```
+
+```json
+"attributes": {
+  "blocks": [{ "type": "text", "title": "Intro" }, { "type": "image" }, { "type": "divider" }]
+}
+```
+
 The rule for a field listed whole applies to the items as well: `lines,lines.*.sku` and
 `lines.*,lines.*.sku` both render every item of `lines` whole.
 
@@ -192,6 +213,8 @@ it. A key member is not accepted when:
 - it uses `*` on a member that is not a list whose items the server lets a client
   select from: a scalar, an object, a list of scalars, or a list of objects the server
   returns only whole;
+- on an object that takes one of several forms, no form lets a client select its key or
+  the rest of its path;
 - it addresses an item of a list by anything but `*`, such as an index;
 - one of its keys is empty.
 

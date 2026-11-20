@@ -10,6 +10,9 @@
          failOnRisky="true"
          failOnWarning="true"
          colors="true">
+    <php>
+        <ini name="memory_limit" value="1G"/>
+    </php>
     <testsuites>
         <testsuite name="haddowg/json-api test suite">
             <directory>tests</directory>

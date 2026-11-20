@@ -997,6 +997,24 @@ final class SchemaProjector
     }
 
     /**
+     * The schema of a value that is one of `$enumClass`'s backing values: a reference to
+     * the enum's hoisted component when a `$collector` gathers them, else the enum inline.
+     * A {@see \haddowg\JsonApi\Resource\Field\OneOf} discriminator bound to an enum
+     * documents its property through it.
+     *
+     * @param class-string<\BackedEnum> $enumClass
+     */
+    public function enumSchema(string $enumClass, ?EnumComponentCollector $collector): Schema
+    {
+        $values = \array_map(static fn(\BackedEnum $case): int|string => $case->value, $enumClass::cases());
+        $type = (string) (new \ReflectionEnum($enumClass))->getBackingType() === 'int' ? 'integer' : 'string';
+        $notes = [];
+        $schema = $this->applyEnum(Schema::ofType($type), new In($values, enumClass: $enumClass), $notes, $collector);
+
+        return $this->withNotes($schema, $notes);
+    }
+
+    /**
      * Applies an {@see In} constraint's `enum`.
      *
      * Without a `$collector` (standalone field projection) the enum is emitted

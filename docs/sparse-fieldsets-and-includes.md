@@ -85,6 +85,8 @@ The rules:
   renders the whole attribute. The same holds at each level, so
   `address.geo,address.geo.lat` renders all of `geo`, and `*` counts as a level:
   `lines,lines.*.sku` and `lines.*,lines.*.sku` both render every item whole.
+- A `OneOf`, as an attribute, a child or a list's items, renders its discriminator and the
+  selected keys its own variant accepts. A key is accepted when one variant accepts it.
 - `lines.*` on its own is read as `lines`: it selects the whole list and narrows nothing,
   so it doesn't bring the profile. The same goes inside a path, where
   `shipping.parcels.*` selects `parcels` whole.

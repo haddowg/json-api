@@ -23,9 +23,10 @@ use haddowg\JsonApi\Resource\ValueTypes;
  * ({@see elementUnion()}). A write replaces the whole list, building every element
  * fresh from the request.
  *
- * A structured list whose element is an {@see Obj} declaring `selectableKeys()` lets a
- * request select keys of every item as `<attr>.*.<key>`: its one selectable key is
- * {@see KeySelection::ITEMS}, and each item renders trimmed to the selection inside it.
+ * A structured list whose element is an {@see Obj} declaring `selectableKeys()`, or a
+ * {@see OneOf} with a variant that does, lets a request select keys of every item as
+ * `<attr>.*.<key>`: its one selectable key is {@see KeySelection::ITEMS}, and each item
+ * renders trimmed to the selection inside it.
  */
 final readonly class ArrayList extends AbstractFieldValue implements NamedSchemaInterface, AcceptsDefaultOutputTimezoneInterface, SelectsKeysInterface
 {
@@ -82,11 +83,16 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
 
     /**
      * The element whose keys a request may select in every item, or `null` when the list
-     * is not of an {@see Obj} declaring `selectableKeys()`.
+     * is not of an {@see Obj} declaring `selectableKeys()` or of a {@see OneOf} with a
+     * variant that does.
      */
-    public function selectableElement(): ?Obj
+    public function selectableElement(): Obj|OneOf|null
     {
-        return $this->element instanceof Obj && $this->element->selectableKeys() !== null ? $this->element : null;
+        return match (true) {
+            $this->element instanceof Obj => $this->element->selectableKeys() !== null ? $this->element : null,
+            $this->element instanceof OneOf => $this->element->selectableVariants() !== [] ? $this->element : null,
+            default => null,
+        };
     }
 
     /**
@@ -149,9 +155,13 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
         $element = $this->element;
         $items = $only?->items();
         $computed = $this->state->extractUsing !== null;
-        $render = $element instanceof Obj
-            ? static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request, $items) : $element->serializeStored($item, $request, $items)
-            : static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request) : $element->serializeStored($item, $request);
+        if ($element instanceof Obj) {
+            $render = static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request, $items) : $element->serializeStored($item, $request, $items);
+        } else {
+            // Each variant accepts its own share of the selection, worked out once per list.
+            $variants = $items === null ? null : $element->variantSelections($items, $request);
+            $render = static fn(mixed $item): mixed => $computed ? $element->serializeComputed($item, $request, $variants) : $element->serializeStored($item, $request, $variants);
+        }
 
         return $this->mapElements(
             $this->state->extractUsing !== null

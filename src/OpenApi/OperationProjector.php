@@ -38,6 +38,7 @@ use haddowg\JsonApi\Resource\Deprecatable;
 use haddowg\JsonApi\Resource\Field\ArrayList;
 use haddowg\JsonApi\Resource\Field\Map;
 use haddowg\JsonApi\Resource\Field\Obj;
+use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\SelectableKeys;
 use haddowg\JsonApi\Resource\Field\SelectsKeysInterface;
 use haddowg\JsonApi\Resource\Filter\AcceptsList;
@@ -2252,15 +2253,28 @@ final class OperationProjector
     {
         if ($field instanceof ArrayList) {
             $element = $field->selectableElement();
-            $inner = $element?->selectableKeys();
-            if ($element === null || $inner === null) {
+            if ($element === null) {
                 return [];
             }
             if (!$top) {
                 $nested['list'] = true;
             }
 
-            return [$prefix . '\\.\\*', ...self::selectablePaths($element, $inner, $prefix . '\\.\\*', $nested, true)];
+            $inner = $element->selectableKeys();
+
+            return $inner === null ? [] : [$prefix . '\\.\\*', ...self::selectablePaths($element, $inner, $prefix . '\\.\\*', $nested, true)];
+        }
+        if ($field instanceof OneOf) {
+            // A one-of takes every path one of its variants declares, at the level it sits.
+            $paths = [];
+            foreach ($field->selectableVariants() as $variant) {
+                $inner = $variant->selectableKeys();
+                if ($inner !== null) {
+                    \array_push($paths, ...self::selectablePaths($variant, $inner, $prefix, $nested, $top));
+                }
+            }
+
+            return \array_values(\array_unique($paths));
         }
         if (!$top) {
             $nested['object'] = true;
