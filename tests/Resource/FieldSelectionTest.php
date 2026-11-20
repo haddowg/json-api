@@ -212,8 +212,7 @@ final class FieldSelectionTest extends TestCase
     {
         $this->assertUnrecognized('values.rows.a', ['values.rows.a']);
 
-        // A key holds no full stop, so `rows.a` is a path into `rows`, a list, even where the
-        // declared pattern admits dots.
+        // `rows.a` is a path into `rows`, a list whose element declares no selectable keys.
         $this->assertUnrecognized('groups.rows.a', ['groups.rows.a']);
         $body = $this->body($this->render('name,groups.rows.a'));
         self::assertSame(['name' => 'Widget'], $this->attributes($body));
@@ -464,6 +463,39 @@ final class FieldSelectionTest extends TestCase
     }
 
     #[Test]
+    public function aWildcardWithNothingAfterItDoesNotAdvertiseTheProfile(): void
+    {
+        foreach (['lines.*', 'reference,lines.*', 'lines.*,lines.*.sku', 'archived.*'] as $fields) {
+            $response = $this->renderOrder($fields);
+
+            self::assertSame('application/vnd.api+json', $response->getHeaderLine('Content-Type'), $fields);
+            self::assertSame(['version' => '1.1'], $this->body($response)['jsonapi'] ?? null, $fields);
+        }
+    }
+
+    #[Test]
+    public function aWildcardWithNothingAfterItListsASparseByDefaultListWhole(): void
+    {
+        self::assertSame($this->orderAttributes('archived'), $this->orderAttributes('archived.*'));
+        self::assertSame(['archived' => [['sku' => 'Z9', 'qty' => 4]]], $this->orderAttributes('archived.*'));
+        self::assertArrayNotHasKey('archived', $this->orderAttributes('reference'));
+    }
+
+    #[Test]
+    public function aNestedListSelectedThroughAWildcardAloneIsSelectedWhole(): void
+    {
+        self::assertSame($this->orderAttributes('shipping.parcels'), $this->orderAttributes('shipping.parcels.*'));
+        self::assertSame($this->orderAttributes('lines.*.tags'), $this->orderAttributes('lines.*.tags.*'));
+
+        $request = $this->orderRequest(null);
+        $shipping = FieldSelection::selection(OrderSelectionResource::shipping(), ['parcels.*', 'carrier'], $request);
+        self::assertNotNull($shipping);
+        self::assertSame(['parcels', 'carrier'], $shipping->paths());
+        self::assertNull($shipping->nested('parcels'));
+        self::assertSame(['*.tags'], FieldSelection::selection(OrderSelectionResource::lines(), ['*.tags.*'], $request)?->paths());
+    }
+
+    #[Test]
     public function aListListedWholeBesideAWildcardPathRendersWhole(): void
     {
         $whole = $this->orderAttributes('lines');
@@ -506,6 +538,10 @@ final class FieldSelectionTest extends TestCase
 
         OrderSelectionResource::$extracted = [];
         $this->orderAttributes('bundles');
+        self::assertSame([['keys' => null, 'items' => null, 'paths' => null]], OrderSelectionResource::$extracted);
+
+        OrderSelectionResource::$extracted = [];
+        $this->orderAttributes('bundles.*');
         self::assertSame([['keys' => null, 'items' => null, 'paths' => null]], OrderSelectionResource::$extracted);
     }
 
@@ -561,7 +597,9 @@ final class FieldSelectionTest extends TestCase
         $server = $this->server();
 
         self::assertTrue(FieldSelection::narrows($server, $this->orderRequest('lines.*.sku')));
-        self::assertTrue(FieldSelection::narrows($server, $this->orderRequest('lines.*')));
+        self::assertFalse(FieldSelection::narrows($server, $this->orderRequest('lines.*')));
+        self::assertFalse(FieldSelection::narrows($server, $this->orderRequest('lines.*,lines.*.sku')));
+        self::assertTrue(FieldSelection::narrows($server, $this->orderRequest('shipping.parcels.*')));
         self::assertFalse(FieldSelection::narrows($server, $this->orderRequest('lines,lines.*.sku')));
         self::assertFalse(FieldSelection::narrows($server, $this->orderRequest('notes.*')));
     }
@@ -580,10 +618,9 @@ final class FieldSelectionTest extends TestCase
         self::assertSame(['amount'], $selection->items()->nested('price')?->keys);
         self::assertSame(['*.sku', '*.price.amount'], $selection->paths());
 
-        $whole = FieldSelection::selection($lines, ['*.sku', '*'], $request);
-        self::assertNotNull($whole);
-        self::assertSame(['*'], $whole->keys);
-        self::assertNull($whole->items());
+        self::assertNull(FieldSelection::selection($lines, ['*.sku', '*'], $request));
+        self::assertTrue(FieldSelection::selectsWhole($lines, ['*.sku', '*'], $request));
+        self::assertFalse(FieldSelection::selectsWhole($lines, ['*.sku'], $request));
 
         self::assertNull(FieldSelection::selection($lines, ['0', 'sku'], $request));
         self::assertNull((new KeySelection(['sku']))->items());
@@ -603,6 +640,22 @@ final class FieldSelectionTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         Map::make('totals')->selectableKeys(pattern: '[a-');
+    }
+
+    #[Test]
+    public function aPatternThatCanMatchAFullStopIsRefused(): void
+    {
+        foreach ([static fn() => Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[a-z.]+'), static fn() => Map::make('totals')->selectableKeys(pattern: '.+')] as $declare) {
+            try {
+                $declare();
+                self::fail('Expected the pattern to be refused.');
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringContainsString('which can match a full stop', $e->getMessage());
+            }
+        }
+
+        Obj::make('address')->fields(Str::make('a'))->selectableKeys(pattern: '[^.,]+');
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -807,7 +860,7 @@ final class SelectionProductResource extends AbstractResource
                 ->selectableKeys(pattern: '[a-z][a-z0-9_]*'),
             Obj::make('groups')
                 ->additionalProperties(\haddowg\JsonApi\Resource\Field\ArrayList::make('*')->of(Obj::make('row')->fields(Integer::make('a'))))
-                ->selectableKeys(pattern: '[a-z.]+'),
+                ->selectableKeys(pattern: '[a-z]+'),
             Obj::make('computed')
                 ->additionalProperties(Integer::make('*'))
                 ->selectableKeys(pattern: '[a-z]+')
@@ -964,6 +1017,7 @@ final class OrderSelectionResource extends AbstractResource
             'extras' => ['gift' => 'yes'],
             'cells' => [['a' => '1', 'b' => '2'], ['b' => '3']],
             'shipping' => ['carrier' => 'post', 'parcels' => [['weight' => 2, 'label' => 'a'], ['weight' => 5, 'label' => 'b']]],
+            'archived' => [['sku' => 'Z9', 'qty' => 4]],
         ];
     }
 
@@ -979,6 +1033,14 @@ final class OrderSelectionResource extends AbstractResource
         )->build();
     }
 
+    public static function shipping(): Obj
+    {
+        return Obj::make('shipping')->fields(
+            Str::make('carrier'),
+            ArrayList::make('parcels')->of(Obj::make('parcel')->fields(Integer::make('weight'), Str::make('label'))->selectableKeys(pattern: 'weight|label')),
+        )->selectableKeys(pattern: '[a-z]+')->build();
+    }
+
     public function fields(): array
     {
         $line = Obj::make('line')->fields(Str::make('sku'), Integer::make('qty'))->selectableKeys(pattern: '[a-z]+');
@@ -991,10 +1053,8 @@ final class OrderSelectionResource extends AbstractResource
             ArrayList::make('notes'),
             Obj::make('extras')->additionalProperties(Str::make('*'))->selectableKeys(static fn(string $key): bool => true),
             ArrayList::make('cells')->of(Obj::make('cell')->additionalProperties(Str::make('*'))->selectableKeys(pattern: '[a-z]+')),
-            Obj::make('shipping')->fields(
-                Str::make('carrier'),
-                ArrayList::make('parcels')->of(Obj::make('parcel')->fields(Integer::make('weight'), Str::make('label'))->selectableKeys(pattern: 'weight|label')),
-            )->selectableKeys(pattern: '[a-z]+'),
+            self::shipping(),
+            ArrayList::make('archived')->of($line)->sparseByDefault(),
             ArrayList::make('bundles')->of($line)->computedUsing(static function (array $order, JsonApiRequestInterface $request, string $name, ?KeySelection $only): array {
                 self::$extracted[] = ['keys' => $only?->keys, 'items' => $only?->items()?->keys, 'paths' => $only?->paths()];
 

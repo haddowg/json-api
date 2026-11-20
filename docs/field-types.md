@@ -537,7 +537,9 @@ Map::make('totals')
 
 The pattern is a regular expression PHP and ECMA-262 both read, since it is also
 documented in the OpenAPI document. A key never holds a `.`, since the full stop separates
-the keys of a nested path.
+the keys of a nested path, so `selectableKeys()` throws an `InvalidArgumentException` for a
+pattern that could match one, such as `.+` or `[^,]+`. Use a class that leaves it out,
+such as `[^.,]+`.
 
 Nesting is opt-in per level. A key whose field is itself an `Obj` or a `Map` declaring
 `selectableKeys()` can be narrowed in turn, so `fields[people]=address.geo.lat` renders
@@ -574,8 +576,8 @@ renders every line, in order, each holding only `sku` and a `price` holding only
 `selectableKeys()`, renders whole and `*` on it is an unknown fieldset member, as is `*` on
 an object. A path keeps going through nested objects and lists, as `lines.*.price.amount`
 or `groups.*.rows.*.label`, and a list inside an object is reached as
-`shipping.parcels.*.weight`. `lines.*` on its own selects every item whole, the same as
-`lines`. There is no index segment: `lines.0` is an unknown member. An item missing a
+`shipping.parcels.*.weight`. `lines.*` on its own is read as `lines`, so it selects the
+whole list, narrows nothing and passes the hook below a `null` selection. There is no index segment: `lines.0` is an unknown member. An item missing a
 selected member renders without it, so an open element's item holding none of the
 selected keys renders as `{}`, while a declared child renders `null` as it would whole.
 

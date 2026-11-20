@@ -1,0 +1,3 @@
+# A list named through a wildcard alone is listed whole
+
+`lines.*` with nothing after it already rendered the same list as `lines`, but it counted as a key member: the response advertised the Field Selection profile, a list's `extractUsing()` hook received a selection of `*`, and a client could not tell it from a narrowing. A path ending in `*` now names the list itself, so `lines.*` is read exactly as `lines` and `shipping.parcels.*` exactly as `shipping.parcels`: it is still accepted only where `*` is, it narrows nothing, brings no profile and passes the hook a `null` selection, and `FieldSelection::selectsWhole()` answers for it where `selection()` answers `null`.

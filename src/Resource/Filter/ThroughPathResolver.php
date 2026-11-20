@@ -481,9 +481,9 @@ final class ThroughPathResolver
      * no relation names a segment, so `pivot.position` walks nothing.
      *
      * A member the data layer can't name one type for, an entity no registered type serves
-     * or several do, ends the walk there: no type's rules can apply to it, so a deprecated
-     * filter reaching it keeps working without them, as it did before. A `->through()`
-     * path refuses such a member at warm-up instead.
+     * or several do, ends the walk there, since no type's rules can apply to it. The adapters
+     * refuse a declared filter reaching one at warm-up in either form, so only one a filter
+     * family resolves per request can still end its walk here.
      *
      * @return list<non-empty-list<RelationInterface>>
      */

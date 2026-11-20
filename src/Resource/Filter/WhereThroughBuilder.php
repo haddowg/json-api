@@ -15,8 +15,8 @@ namespace haddowg\JsonApi\Resource\Filter;
  *             The path names relations by API name and the column a field of the reached
  *             type; see the filters guide for the migration. A path continuing past a `pivot`
  *             segment needs exactly one registered resource type for the entity the pivot
- *             row's member reaches: an entity served by no type, or by several, can't migrate
- *             until one type owns it. Removed in the next major version.
+ *             row's member reaches, in either form: the adapters refuse one served by no type,
+ *             or by several, at warm-up. Removed in the next major version.
  */
 final class WhereThroughBuilder implements FilterBuilderInterface
 {

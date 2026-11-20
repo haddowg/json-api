@@ -235,6 +235,21 @@ final class TypedRequestMetaProjectionTest extends TestCase
     }
 
     #[Test]
+    public function aRelationshipWriteDeclaredForOneRelationAnswersAMetaOnlyDocumentOnThatRelationOnly(): void
+    {
+        $document = self::project();
+
+        // The type declares the replace's meta for guest alone, with the relation's name.
+        $guest = self::arr(self::arr(self::arr(self::arr(self::operation($document, '/bookings/{id}/relationships/guest', 'patch')['responses'])['200'])['content'])['application/vnd.api+json']);
+        self::assertSame(['$ref' => '#/components/schemas/BookingsGuestUpdateRelationshipDocument'], $guest['schema']);
+        self::assertSame(['swappedBy' => 'desk'], self::arr($guest['example'])['meta']);
+        $meta = self::arr(self::arr(self::arr(self::arr(self::schema($document, 'BookingsGuestUpdateRelationshipDocument')['allOf'])[1])['properties'])['meta']);
+        self::assertSame(['swappedBy'], \array_keys(self::arr($meta['properties'])));
+
+        self::assertArrayNotHasKey('BookingsRoomsUpdateRelationshipDocument', self::arr(self::arr($document['components'])['schemas']));
+    }
+
+    #[Test]
     public function aStatus202DeclaringItsMetaAnswersADocumentOfItsOwn(): void
     {
         $document = self::project();

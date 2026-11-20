@@ -15,7 +15,9 @@ use haddowg\JsonApi\Resource\Field\RelationInterface;
  *
  * A `->through()` path that continues past a `pivot` segment, such as `pivot.addedBy`,
  * walks the relation this returns, and the reached type's fields, scope and read rules
- * apply from there as they do on any hop.
+ * apply from there as they do on any hop. A row's own ends, back to the parent and to the
+ * member, reach the parent type and the relation's related type, whichever other types serve
+ * the same entity.
  */
 interface PivotRowRelations
 {

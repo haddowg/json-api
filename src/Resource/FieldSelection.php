@@ -24,8 +24,9 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * nested object, and is accepted only when every object along it declares
  * `selectableKeys()` accepting the next key. The key `*` stands for every item of a list
  * whose element declares `selectableKeys()`, as `<attr>.*.<key>`, and for nothing else. An
- * attribute or key the parameter also lists whole renders whole, and so does a list whose
- * items it lists whole as `<attr>.*`.
+ * attribute or key the parameter also lists whole renders whole. A path ending in `*` names
+ * the list itself, so `<attr>.*` lists the attribute whole exactly as `<attr>` does, and
+ * narrows nothing.
  */
 final class FieldSelection
 {
@@ -59,22 +60,48 @@ final class FieldSelection
 
     /**
      * The `$keys` the field's declaration accepts, or `null` when the field declares no
-     * selectable keys or accepts none of them. A dotted key is a path into a nested
-     * object: it is accepted when each object along it declares `selectableKeys()` and
-     * accepts the next key, or is a list whose element does and the key is `*`. A key also
-     * selected whole is not narrowed.
+     * selectable keys, accepts none of them, or they select it whole. A dotted key is a
+     * path into a nested object: it is accepted when each object along it declares
+     * `selectableKeys()` and accepts the next key, or is a list whose element does and the
+     * key is `*`. A key also selected whole is not narrowed, and a path ending in `*`
+     * selects its list whole.
      *
      * @param list<string> $keys
      */
     public static function selection(FieldInterface $field, array $keys, JsonApiRequestInterface $request): ?KeySelection
     {
+        $selected = self::selectKeys($field, $keys, $request);
+
+        return $selected instanceof KeySelection ? $selected : null;
+    }
+
+    /**
+     * Whether the `$keys` select the field whole, as `*` alone does a list whose element
+     * declares `selectableKeys()`. Such a field renders as if `fields[TYPE]` listed its
+     * name.
+     *
+     * @param list<string> $keys
+     */
+    public static function selectsWhole(FieldInterface $field, array $keys, JsonApiRequestInterface $request): bool
+    {
+        return self::selectKeys($field, $keys, $request) === true;
+    }
+
+    /**
+     * @param list<string> $keys
+     */
+    private static function selectKeys(FieldInterface $field, array $keys, JsonApiRequestInterface $request): KeySelection|true|null
+    {
         return self::select($field, \array_map(static fn(string $key): array => \explode('.', $key), $keys), $request);
     }
 
     /**
+     * The selection the paths make of the field, `true` when one of them selects the field
+     * whole, or `null` when it accepts none of them.
+     *
      * @param list<list<string>> $paths
      */
-    private static function select(FieldInterface $field, array $paths, JsonApiRequestInterface $request): ?KeySelection
+    private static function select(FieldInterface $field, array $paths, JsonApiRequestInterface $request): KeySelection|true|null
     {
         $declared = $field instanceof SelectsKeysInterface ? $field->selectableKeys() : null;
         if ($declared === null || !$field instanceof SelectsKeysInterface) {
@@ -91,16 +118,26 @@ final class FieldSelection
             }
             $rest = \array_slice($segments, 1);
             if ($rest === []) {
+                // `*` alone names every item whole, which is the whole list.
+                if ($field instanceof ArrayList) {
+                    return true;
+                }
                 $selected[$key] = true;
                 $whole[$key] = true;
 
                 continue;
             }
             $child = $field->keyField($key);
-            if ($child === null || self::select($child, [$rest], $request) === null) {
+            $inner = $child === null ? null : self::select($child, [$rest], $request);
+            if ($inner === null) {
                 continue;
             }
             $selected[$key] = true;
+            if ($inner === true) {
+                $whole[$key] = true;
+
+                continue;
+            }
             $deeper[$key][] = $rest;
         }
 
@@ -112,7 +149,7 @@ final class FieldSelection
         foreach (\array_diff_key($deeper, $whole) as $key => $rests) {
             $child = $field->keyField((string) $key);
             $inner = $child === null ? null : self::select($child, $rests, $request);
-            if ($inner !== null) {
+            if ($inner instanceof KeySelection) {
                 $nested[(string) $key] = $inner;
             }
         }
@@ -137,6 +174,21 @@ final class FieldSelection
     }
 
     /**
+     * Whether `fields[$type]` selects the attribute `$name` whole through a key member, as
+     * `<attr>.*` does a list, read against the type's Resource as
+     * {@see attributeSelection()} reads it. An attribute listed by its name is not counted
+     * here: {@see JsonApiRequestInterface::isIncludedField()} answers for it.
+     */
+    public static function attributeSelectedWhole(SerializerInterface $serializer, string $type, string $name, JsonApiRequestInterface $request, ?SerializerResolverInterface $resolver = null): bool
+    {
+        $keys = self::requestedKeys($request, $type)[$name] ?? null;
+        $resource = $keys === null ? null : self::declaringResource($serializer, $type, $resolver);
+        $field = $resource === null ? null : self::attributeNamed($resource, $name);
+
+        return $field !== null && $keys !== null && self::selectsWhole($field, $keys, $request);
+    }
+
+    /**
      * Whether a dotted `fields[TYPE]` member names a key the serializer's attribute
      * accepts. A hidden or write-only attribute counts, as its plain name does, so the
      * answer gives nothing away about it. A serializer that is not a Resource is read
@@ -152,12 +204,13 @@ final class FieldSelection
 
         $field = self::attributeNamed($resource, \substr($member, 0, $dot));
 
-        return $field !== null && self::selection($field, [\substr($member, $dot + 1)], $request) !== null;
+        return $field !== null && self::selectKeys($field, [\substr($member, $dot + 1)], $request) !== null;
     }
 
     /**
      * Whether the request narrows an attribute of any type the resolver serializes, so
-     * its responses apply the field-selection profile.
+     * its responses apply the field-selection profile. A key member that selects its
+     * attribute whole, as `<attr>.*` does a list, narrows nothing.
      */
     public static function narrows(SerializerResolverInterface $resolver, JsonApiRequestInterface $request): bool
     {

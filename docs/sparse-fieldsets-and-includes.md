@@ -85,7 +85,9 @@ The rules:
   renders the whole attribute. The same holds at each level, so
   `address.geo,address.geo.lat` renders all of `geo`, and `*` counts as a level:
   `lines,lines.*.sku` and `lines.*,lines.*.sku` both render every item whole.
-- `lines.*` on its own selects the whole list, the same as `lines`.
+- `lines.*` on its own is read as `lines`: it selects the whole list and narrows nothing,
+  so it doesn't bring the profile. The same goes inside a path, where
+  `shipping.parcels.*` selects `parcels` whole.
 - A list keeps its length and order. An item without a selected member renders without
   it, as `{}` when nothing selected is left, and an empty list renders `[]`.
 - A path selects nothing else of the objects it passes through: `address.geo.lat`

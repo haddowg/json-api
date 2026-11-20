@@ -68,6 +68,62 @@ final class DocumentMetaTest extends TestCase
     }
 
     #[Test]
+    public function aRelationshipWriteNamesItsRelationToAnOverrideThatDeclaresIt(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'notes';
+
+            /**
+             * @var list<array{OperationType, ?string}>
+             */
+            public array $calls = [];
+
+            public function fields(): array
+            {
+                return [Id::make()];
+            }
+
+            public function documentMeta(OperationType $operation, ?string $relation = null): iterable
+            {
+                $this->calls[] = [$operation, $relation];
+
+                return $operation === OperationType::UpdateRelationship && $relation === 'tags' ? [Integer::make('retagged')] : [];
+            }
+        };
+
+        $tags = DocumentMeta::forOperation($resource, OperationType::UpdateRelationship, 'notes', 'tags');
+        self::assertSame(['retagged'], \array_map(static fn($field): string => $field->name(), $tags->fields));
+        self::assertSame('the "notes" UpdateRelationship document of "tags"', $tags->owner);
+        self::assertTrue(DocumentMeta::forOperation($resource, OperationType::UpdateRelationship, 'notes', 'author')->isEmpty());
+
+        // Any other case is called with null, whatever relation the caller names.
+        DocumentMeta::forOperation($resource, OperationType::FetchOne, 'notes', 'tags');
+        self::assertSame([OperationType::FetchOne, null], $resource->calls[2]);
+    }
+
+    #[Test]
+    public function aOneArgumentOverrideDeclaresTheSameMembersOnEveryRelationship(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'notes';
+
+            public function fields(): array
+            {
+                return [Id::make()];
+            }
+
+            public function documentMeta(OperationType $operation): iterable
+            {
+                return $operation === OperationType::AddRelationship ? [Integer::make('added')] : [];
+            }
+        };
+
+        foreach (['tags', 'author'] as $relation) {
+            self::assertSame(['added'], \array_map(static fn($field): string => $field->name(), DocumentMeta::forOperation($resource, OperationType::AddRelationship, 'notes', $relation)->fields));
+        }
+    }
+
+    #[Test]
     public function aDeletesMembersApplyOnlyToItsMetaOnly200(): void
     {
         $declarer = new class implements DeclaresDocumentMetaInterface {
