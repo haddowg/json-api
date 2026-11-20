@@ -70,6 +70,15 @@ enum OperationType: string
     }
 
     /**
+     * Whether this is the meta-only `200` of a relationship write, the one kind of document
+     * whose `documentMeta()` also receives the relation's name.
+     */
+    public function isRelationshipWrite(): bool
+    {
+        return \in_array($this, [self::UpdateRelationship, self::AddRelationship, self::RemoveRelationship], true);
+    }
+
+    /**
      * The `202` job document of this write, a create or an update, or `null` for any
      * other operation.
      */
