@@ -7,9 +7,16 @@ namespace haddowg\JsonApi\Resource\Field;
 /**
  * The mutable builder for an {@see AdditionalProperties} entry, which opens a declared
  * `meta` object to members it does not name.
+ *
+ * @template-covariant TValue = mixed
+ *
+ * @extends AbstractFieldBuilder<TValue>
  */
 final class AdditionalPropertiesBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+
     private FieldInterface|FieldBuilderInterface|null $of = null;
 
     public function build(): AdditionalProperties

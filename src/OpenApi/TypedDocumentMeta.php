@@ -17,7 +17,6 @@ use haddowg\JsonApi\OpenApi\Metadata\RelationMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\DocumentMeta;
-use haddowg\JsonApi\Resource\RelationshipMetaContext;
 
 /**
  * Which success documents declare their top-level `meta`, what each is named, and the
@@ -152,19 +151,20 @@ final class TypedDocumentMeta
 
     /**
      * The members of the meta-only `200` a relationship write answers with, which the
-     * parent type declares. None when it declares none, so the write answers its linkage.
+     * parent type declares for the write's kind. None when it declares none, so the write
+     * answers its linkage.
      */
-    public static function forRelationshipWrite(TypeMetadataInterface $type, RelationMetadataInterface $relation, OperationKind $kind): DocumentMeta
+    public static function forRelationshipWrite(TypeMetadataInterface $type, OperationKind $kind): DocumentMeta
     {
+        $operation = $kind->relationshipDocument() ?? throw new \InvalidArgumentException(\sprintf('%s is not a relationship write.', $kind->value));
         self::$relationships ??= new \WeakMap();
         $memo = self::$relationships[$type] ?? [];
-        $key = $relation->name() . ':' . $kind->value;
-        if (!isset($memo[$key])) {
-            $memo[$key] = DocumentMeta::forRelationship($type, new RelationshipMetaContext($relation->name(), TypedRequestMeta::mode($kind)), $type->type());
+        if (!isset($memo[$operation->value])) {
+            $memo[$operation->value] = DocumentMeta::forOperation($type, $operation, $type->type());
             self::$relationships[$type] = $memo;
         }
 
-        return $memo[$key];
+        return $memo[$operation->value];
     }
 
     /**
@@ -258,7 +258,7 @@ final class TypedDocumentMeta
                 // A relationship write the parent type declares document meta for answers a
                 // meta-only document.
                 if ($enumerated->relation !== null && \in_array($key->kind, [OperationKind::UpdateRelationship, OperationKind::AddRelationship, OperationKind::RemoveRelationship], true)) {
-                    $relationshipMeta = self::forRelationshipWrite($type, $enumerated->relation, $key->kind);
+                    $relationshipMeta = self::forRelationshipWrite($type, $key->kind);
                     if (!$relationshipMeta->isEmpty()) {
                         self::add($documents, self::operationDocument($type->type(), $key), 'MetaDocument', $relationshipMeta, $enumerated->operationId);
                     }

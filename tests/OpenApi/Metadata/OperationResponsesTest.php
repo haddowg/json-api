@@ -66,9 +66,17 @@ final class OperationResponsesTest extends TestCase
         self::assertSame(200, OperationResponses::defaultFor(OperationType::Update)[0]->status());
         self::assertSame(204, OperationResponses::defaultFor(OperationType::Delete)[0]->status());
 
-        foreach (OperationType::cases() as $operation) {
+        foreach (OperationType::resourceOperations() as $operation) {
             self::assertCount(1, OperationResponses::defaultFor($operation));
         }
+    }
+
+    #[Test]
+    public function aDocumentCaseDeclaresNoResponses(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        OperationResponses::defaultFor(OperationType::AddRelationship);
     }
 
     #[Test]

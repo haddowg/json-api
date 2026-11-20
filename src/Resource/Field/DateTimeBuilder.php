@@ -28,6 +28,11 @@ use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
  */
 class DateTimeBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
+
     protected string $format = \DateTimeInterface::ATOM;
 
     protected ?string $useTimezone = null;
