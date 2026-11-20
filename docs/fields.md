@@ -606,9 +606,9 @@ checked.
 
 Some values stay `mixed` whatever the builder carries. A `when()` closure's condition
 value does, since a validator asks it before the type check runs, and so do a relation's
-hooks, whose values are linkage rather than a typed attribute. An `Id` and a builder you
-construct yourself or subclass without forwarding its template take `mixed` too. It is static typing only:
-nothing changes at runtime.
+hooks, whose values are linkage rather than a typed attribute. A builder you construct
+yourself, or subclass without forwarding its template, takes `mixed` too. It is static
+typing only: nothing changes at runtime.
 
 ### Worked example: a computed read and a renamed column
 
