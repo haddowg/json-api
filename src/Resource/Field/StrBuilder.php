@@ -28,6 +28,11 @@ use haddowg\JsonApi\Resource\Constraint\UuidFormat;
  */
 class StrBuilder extends AbstractFieldBuilder
 {
+    /** @use DeclaresDeserializeHook<TValue> */
+    use DeclaresDeserializeHook;
+    /** @use DeclaresFillHook<TValue> */
+    use DeclaresFillHook;
+
     public function build(): Str
     {
         return new Str($this->fieldState());

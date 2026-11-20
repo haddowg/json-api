@@ -17,6 +17,7 @@ use haddowg\JsonApi\Resource\Field\DateTime;
 use haddowg\JsonApi\Resource\Field\Decimal;
 use haddowg\JsonApi\Resource\Field\Email;
 use haddowg\JsonApi\Resource\Field\FieldBuilderInterface;
+use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Integer;
 use haddowg\JsonApi\Resource\Field\Ip;
 use haddowg\JsonApi\Resource\Field\KeySelection;
@@ -299,5 +300,24 @@ final class HookValueTypes
             // @phpstan-ignore argument.type (a union's value may be any of its members' types)
             Union::make('wrongUnion')->of(Str::make(), Integer::make())->fillUsing(static fn(\ArrayObject $model, string $value): mixed => $value),
         ];
+    }
+
+    /**
+     * An object, a map, a union of objects and the id write their values without a
+     * deserializeUsing() hook, and the id without a fillUsing() one, so their builders
+     * have neither.
+     */
+    public static function absent(): void
+    {
+        // @phpstan-ignore method.notFound (an object has no deserializeUsing())
+        Obj::make('object')->deserializeUsing(static fn(mixed $value): mixed => $value);
+        // @phpstan-ignore method.notFound (a map has no deserializeUsing())
+        Map::make('map')->deserializeUsing(static fn(mixed $value): mixed => $value);
+        // @phpstan-ignore method.notFound (a union of objects has no deserializeUsing())
+        OneOf::make('variant')->deserializeUsing(static fn(mixed $value): mixed => $value);
+        // @phpstan-ignore method.notFound (the id has no deserializeUsing())
+        Id::make()->deserializeUsing(static fn(mixed $value): mixed => $value);
+        // @phpstan-ignore method.notFound (the id has no fillUsing())
+        Id::make()->fillUsing(static fn(mixed $model, mixed $value): mixed => $value);
     }
 }

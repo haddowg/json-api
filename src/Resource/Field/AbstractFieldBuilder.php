@@ -31,8 +31,9 @@ use haddowg\JsonApi\Resource\Constraint\When;
  * cast is done by overriding {@see AbstractFieldValue::serializeValue()} /
  * {@see AbstractFieldValue::deserializeValue()} on the mirror value object.
  *
- * `TValue` is the request value the write hooks receive, `fillUsing()`'s and
- * `deserializeUsing()`'s value. Each
+ * The write hooks come from {@see DeclaresFillHook} and {@see DeclaresDeserializeHook},
+ * used only by the builders whose field runs them. `TValue` is the request value they
+ * receive, `fillUsing()`'s and `deserializeUsing()`'s value. Each
  * concrete `make()` sets it to the JSON type the adapter's validation guarantees before
  * hydration, and the calls that widen what a write may carry widen it, such as
  * `nullable()`, `enum()` and `deserializeUsing()`. It is static typing only.
@@ -114,12 +115,12 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
     /**
      * @var \Closure(mixed, array<string, mixed>): mixed|null
      */
-    private ?\Closure $deserializeUsingOnCreate = null;
+    protected ?\Closure $deserializeUsingOnCreate = null;
 
     /**
      * @var \Closure(mixed, array<string, mixed>): mixed|null
      */
-    private ?\Closure $deserializeUsingOnUpdate = null;
+    protected ?\Closure $deserializeUsingOnUpdate = null;
 
     /**
      * @var \Closure(mixed, mixed, array<string, mixed>, string): mixed|null
@@ -446,47 +447,6 @@ abstract class AbstractFieldBuilder implements FieldBuilderInterface
         }
 
         $this->extractUsing = $callback;
-
-        return $this;
-    }
-
-    /**
-     * Converts the request value before it is stored, called with the value and the
-     * resource object's `data` member. Declared inside `onCreate()` or `onUpdate()`, it
-     * runs on that write only, in place of one declared on the field. The callback may type the value as `TValue`, the
-     * type the field's validation guarantees. After it `TValue` is `mixed`, so a
-     * `fillUsing()` declared later takes the value untyped.
-     *
-     * @param \Closure(TValue, array<string, mixed>): mixed $callback
-     * @phpstan-self-out static<mixed>
-     * @return $this
-     */
-    public function deserializeUsing(\Closure $callback): static
-    {
-        $context = $this->currentContext();
-        match (true) {
-            $context->onCreate && !$context->onUpdate => $this->deserializeUsingOnCreate = $callback,
-            $context->onUpdate && !$context->onCreate => $this->deserializeUsingOnUpdate = $callback,
-            default => $this->deserializeUsing = $callback,
-        };
-
-        return $this;
-    }
-
-    /**
-     * Writes the request value onto the model in place of the default write, called with
-     * the model, the value, the resource object's `data` member and the member's name.
-     * The callback may type the model as the class it expects and the value as `TValue`,
-     * the type the field's validation guarantees, such as `string` for a {@see Str}.
-     *
-     * @template TModel
-     *
-     * @param \Closure(TModel, TValue, array<string, mixed>, string): mixed $callback
-     * @return static
-     */
-    public function fillUsing(\Closure $callback): static
-    {
-        $this->fillUsing = $callback;
 
         return $this;
     }
