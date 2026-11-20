@@ -17,9 +17,65 @@ use haddowg\JsonApi\Serializer\DeclaresResourceMetaInterface;
  * stays open. Adapters call it in debug only and refuse a violation with
  * {@see ResourceMetaMismatch}, so a mistake fails loudly in development and costs nothing
  * in production.
+ *
+ * A declared member always wins over a member of the same name an
+ * {@see Field\AdditionalProperties} entry's hook returns, so the rendered document cannot
+ * show the clash. An adapter in debug marks the request with {@see CHECK_ATTRIBUTE}
+ * through {@see checking()}, and each place that renders an entry's members then refuses a
+ * clashing name with {@see clash()} as it renders it.
  */
 final class RenderedMeta
 {
+    /**
+     * The request attribute an adapter sets, in debug only, to have rendered `meta` checked
+     * as it is rendered.
+     */
+    public const string CHECK_ATTRIBUTE = 'haddowg.json-api.check-rendered-meta';
+
+    /**
+     * `$request` marked for the debug check.
+     *
+     * @template T of \Psr\Http\Message\ServerRequestInterface
+     *
+     * @param T $request
+     *
+     * @return T
+     */
+    public static function checking(\Psr\Http\Message\ServerRequestInterface $request): \Psr\Http\Message\ServerRequestInterface
+    {
+        /** @var T */
+        return $request->withAttribute(self::CHECK_ATTRIBUTE, true);
+    }
+
+    /**
+     * Whether `$request` is marked for the debug check.
+     */
+    public static function checks(\Psr\Http\Message\ServerRequestInterface $request): bool
+    {
+        return $request->getAttribute(self::CHECK_ATTRIBUTE) === true;
+    }
+
+    /**
+     * Refuses, when `$request` is marked for the debug check, a member `$owner`'s entry or
+     * resolver returned under the name of a declared member, which the declared member
+     * replaced. Does nothing otherwise, so production renders the declared member.
+     *
+     * @param class-string<ResourceMetaMismatch|DocumentMetaMismatch> $error
+     *
+     * @throws ResourceMetaMismatch|DocumentMetaMismatch
+     */
+    public static function clash(\Psr\Http\Message\ServerRequestInterface $request, string $owner, string $name, string $source = 'additionalProperties entry', string $error = ResourceMetaMismatch::class): void
+    {
+        if (self::checks($request)) {
+            throw new $error(\sprintf(
+                'The %s of %s returned the member "%s", which a declared member of the same name replaced. Rename the member the %s returns.',
+                $source,
+                $owner,
+                $name,
+                $source,
+            ));
+        }
+    }
     /**
      * What is wrong with the resource objects of a rendered document, `data` and
      * `included`, each violation naming the object it was found on.

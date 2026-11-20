@@ -272,7 +272,7 @@ final readonly class DocumentMeta
      */
     public function extract(mixed $data, JsonApiRequestInterface $request): array
     {
-        return $this->shape()->extract($data, $request);
+        return $this->shape()->extract($data, $request, DocumentMetaMismatch::class);
     }
 
     /**
