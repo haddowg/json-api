@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Serializer;
 
+use haddowg\JsonApi\Request\JsonApiRequestInterface;
+
 /**
  * Convenience base for {@see SerializerInterface} implementations. It `use`s the
  * {@see TransformerTrait} for the attribute-value formatting helpers (date/decimal)
@@ -14,4 +16,17 @@ namespace haddowg\JsonApi\Serializer;
 abstract class AbstractSerializer implements SerializerInterface
 {
     use TransformerTrait;
+
+    /**
+     * No resource `meta`. Override it only to keep a serializer that still returns members.
+     *
+     * @deprecated to be removed in the next major, in favour of declared resource meta
+     *             ({@see DeclaresResourceMetaInterface}).
+     *
+     * @return array<string, mixed>
+     */
+    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
+    {
+        return [];
+    }
 }

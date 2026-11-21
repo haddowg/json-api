@@ -377,19 +377,13 @@ Resource-object `meta` and `links` come from the two serializer hooks. On an
 returns `[]` and `getLinks()` returns `null` — so a resource emits no custom
 `meta`, and only the by-convention `self` link (described
 [below](#auto-emitted-links-you-dont-set-by-hand)) unless you override them. A bare
-`AbstractSerializer` subclass leaves both methods abstract (they come from
-`SerializerInterface`, and `AbstractSerializer` only supplies the
-`TransformerTrait` helpers), so it must implement them itself — which is exactly
-why the [`ChartSerializer`](../examples/music-catalog/src/Serializer/ChartSerializer.php)
-writes the no-op defaults out by hand:
+`AbstractSerializer` subclass gets the same empty `getMeta()`, but it must implement
+`getLinks()` itself, so the
+[`ChartSerializer`](../examples/music-catalog/src/Serializer/ChartSerializer.php)
+opts out of links by hand:
 
 ```php
-// ChartSerializer.php — the two hooks, opted out
-public function getMeta(mixed $object, JsonApiRequestInterface $request): array
-{
-    return [];
-}
-
+// ChartSerializer.php: no resource links
 public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
 {
     return null;
