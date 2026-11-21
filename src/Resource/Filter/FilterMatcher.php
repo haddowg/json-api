@@ -52,7 +52,7 @@ final class FilterMatcher
      * @return list<FilterDirective>
      *
      * @throws FilterParamUnrecognized when a requested key matches nothing declared
-     * @throws FilterValueInvalid      when a list filter's value is not a list it accepts
+     * @throws FilterValueInvalid      when a list filter's value is not a list it accepts, or a range's value is not an object of its bounds
      */
     public static function directives(array $requested, array $filters, ?JsonApiRequestInterface $request = null): array
     {
@@ -61,6 +61,10 @@ final class FilterMatcher
             $key = (string) $key;
             $filter = self::match($filters, $key, $request)
                 ?? throw new FilterParamUnrecognized($key);
+
+            if ($filter instanceof Range) {
+                $filter->bounds($value);
+            }
 
             $list = $filter instanceof AcceptsList ? $filter->listValue() : null;
             $directives[] = new FilterDirective($filter, $list === null ? $value : $list->values($key, $value));

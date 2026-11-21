@@ -8,15 +8,18 @@ use haddowg\JsonApi\Exception\FilterParamUnrecognized;
 use haddowg\JsonApi\Exception\FilterValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterDirective;
 use haddowg\JsonApi\Resource\Filter\FilterFamily;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\FilterMatcher;
 use haddowg\JsonApi\Resource\Filter\ListValue;
+use haddowg\JsonApi\Resource\Filter\Range;
 use haddowg\JsonApi\Resource\Filter\Where;
 use haddowg\JsonApi\Resource\Filter\WhereIn;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -26,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(FilterMatcher::class)]
 #[CoversClass(FilterFamily::class)]
 #[CoversClass(ListValue::class)]
+#[CoversClass(Range::class)]
 final class FilterMatcherTest extends TestCase
 {
     #[Test]
@@ -189,6 +193,55 @@ final class FilterMatcherTest extends TestCase
 
         $this->expectException(FilterParamUnrecognized::class);
         FilterMatcher::directives(['value.nope' => 'x'], [FilterFamily::make('value', static fn(string $suffix): ?FilterInterface => null)], $this->request());
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string, string}>
+     */
+    public static function malformedRanges(): iterable
+    {
+        yield 'a scalar' => ['2026-10-01T00:00:00Z', 'filter[window]', 'Send the bounds as filter[window][min]=<value>, filter[window][max]=<value> or both.'];
+        yield 'an unknown member' => [['after' => '2026-10-01T00:00:00Z'], 'filter[window]', 'filter[window] takes only the members min and max.'];
+        yield 'a known and an unknown member' => [['min' => '2026-10-01T00:00:00Z', 'before' => '2026-11-01T00:00:00Z'], 'filter[window]', 'filter[window] takes only the members min and max.'];
+        yield 'a list' => [['2026-10-01T00:00:00Z'], 'filter[window]', 'filter[window] takes only the members min and max.'];
+        yield 'a bound holding a list' => [['max' => ['2026-10-01T00:00:00Z']], 'filter[window]', 'filter[window][max] takes a single value.'];
+    }
+
+    #[Test]
+    #[DataProvider('malformedRanges')]
+    public function aRangeRefusesAValueThatIsNotAnObjectOfItsBounds(mixed $value, string $parameter, string $detail): void
+    {
+        $filters = [
+            Range::make('window', 'score')->build(),
+            DateRange::make('window', 'startsAt')->build(),
+            DateRange::make('window', 'startsAt')->through('event')->build(),
+        ];
+
+        foreach ($filters as $filter) {
+            try {
+                FilterMatcher::directives(['window' => $value], [$filter]);
+                self::fail('A malformed range value must be refused.');
+            } catch (FilterValueInvalid $e) {
+                $errors = $e->getErrors();
+                self::assertCount(1, $errors);
+                self::assertSame(400, $e->getCode());
+                self::assertSame($parameter, $errors[0]->source?->parameter);
+                self::assertSame($detail, $errors[0]->detail);
+            }
+        }
+    }
+
+    #[Test]
+    public function aRangeTakesEitherBoundOrNone(): void
+    {
+        $filter = Range::make('score')->build();
+
+        foreach ([['min' => '1'], ['max' => '5'], ['min' => '1', 'max' => '5'], ['min' => '', 'max' => '5'], [], '', null] as $value) {
+            self::assertSame($value, FilterMatcher::directives(['score' => $value], [$filter])[0]->value);
+        }
+
+        self::assertSame(['min' => '1', 'max' => null], $filter->bounds(['min' => '1', 'max' => '']));
+        self::assertSame(['min' => null, 'max' => null], $filter->bounds(''));
     }
 
     #[Test]
