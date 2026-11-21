@@ -76,11 +76,6 @@ final class TrackSerializer extends AbstractSerializer implements SerializerReso
         return $object->id;
     }
 
-    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
-    {
-        return [];
-    }
-
     public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
     {
         return null;

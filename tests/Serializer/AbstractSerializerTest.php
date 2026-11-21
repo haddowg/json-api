@@ -31,6 +31,14 @@ final class AbstractSerializerTest extends TestCase
         self::assertSame(3.14, $serializer->decimal(3.14159, 2));
         self::assertSame(5.0, $serializer->decimal('5'));
     }
+
+    #[Test]
+    public function emitsNoResourceMetaUnlessASubclassOverridesIt(): void
+    {
+        $request = $this->createStub(JsonApiRequestInterface::class);
+
+        self::assertSame([], (new HelperSerializer())->getMeta(new \stdClass(), $request));
+    }
 }
 
 /**
@@ -50,11 +58,6 @@ final class HelperSerializer extends AbstractSerializer
     public function getId(mixed $object): string
     {
         return '1';
-    }
-
-    public function getMeta(mixed $object, JsonApiRequestInterface $request): array
-    {
-        return [];
     }
 
     public function getLinks(mixed $object, JsonApiRequestInterface $request): ?ResourceLinks
