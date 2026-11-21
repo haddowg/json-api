@@ -298,6 +298,11 @@ GET /tracks?filter[duration][min]=120                             # duration ≥
 GET /albums?filter[released][min]=1990-01-01T00:00:00Z&filter[released][max]=1999-12-31T23:59:59Z
 ```
 
+A value that is not an object of those bounds is a `400` `FILTER_VALUE_INVALID` naming
+`filter[<key>]`: a plain value such as `filter[duration]=120`, or a member other than
+`min` and `max` such as `filter[released][after]=…`. A bound that holds a list,
+`filter[duration][min][]=120`, is refused the same way.
+
 `Range`'s preset deserializer coerces each bound **and the column value** to a
 number before comparing (so the range is numeric, not lexical); `DateRange` is a
 `Range` whose deserializer coerces each bound to a `\DateTimeImmutable`

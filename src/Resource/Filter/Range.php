@@ -26,6 +26,9 @@ namespace haddowg\JsonApi\Resource\Filter;
  * and the reference in-memory apply; database adapters translate it into two
  * push-down `andWhere` predicates.
  *
+ * A value that is not an object of `min` and `max` is a `400` (see {@see bounds()}),
+ * which every data layer gets from {@see FilterMatcher::directives()}.
+ *
  * {@see DateRange} is the only subclass; it adds `$calendarDays` before the path arguments.
  */
 readonly class Range implements \haddowg\JsonApi\Resource\Through\FiltersThrough, \haddowg\JsonApi\Resource\Deprecatable, \haddowg\JsonApi\Resource\Filter\DescribedFilter, \haddowg\JsonApi\Resource\Filter\ExemplifiedFilter, \haddowg\JsonApi\Resource\Filter\DescribesQueryParameter, \haddowg\JsonApi\Resource\Filter\TargetsColumn
@@ -65,6 +68,40 @@ readonly class Range implements \haddowg\JsonApi\Resource\Through\FiltersThrough
     public function targetColumn(): string
     {
         return $this->column;
+    }
+
+    /**
+     * The bounds a requested value holds, keyed `min` and `max`, each null when it is
+     * absent or blank. A null or empty value asks for no bound.
+     *
+     * @return array{min: mixed, max: mixed}
+     *
+     * @throws \haddowg\JsonApi\Exception\FilterValueInvalid when the value is not an object of `min` and `max`, or a bound is not a single value
+     */
+    public function bounds(mixed $value): array
+    {
+        if ($value === null || $value === '' || $value === []) {
+            return ['min' => null, 'max' => null];
+        }
+        if (!\is_array($value)) {
+            throw new \haddowg\JsonApi\Exception\FilterValueInvalid($this->key, [\sprintf('Send the bounds as filter[%1$s][min]=<value>, filter[%1$s][max]=<value> or both.', $this->key)]);
+        }
+
+        $unknown = \array_diff(\array_map('\strval', \array_keys($value)), ['min', 'max']);
+        if ($unknown !== []) {
+            throw new \haddowg\JsonApi\Exception\FilterValueInvalid($this->key, [\sprintf('filter[%s] takes only the members min and max.', $this->key)]);
+        }
+
+        $bounds = ['min' => null, 'max' => null];
+        foreach (['min', 'max'] as $name) {
+            $bound = $value[$name] ?? null;
+            if ($bound !== null && !\is_scalar($bound)) {
+                throw new \haddowg\JsonApi\Exception\FilterValueInvalid($this->key, [\sprintf('filter[%s][%s] takes a single value.', $this->key, $name)]);
+            }
+            $bounds[$name] = $bound === '' ? null : $bound;
+        }
+
+        return $bounds;
     }
 
     public function describeQueryParameter(\haddowg\JsonApi\OpenApi\Schema $valueSchema): \haddowg\JsonApi\OpenApi\QueryParameterShape
