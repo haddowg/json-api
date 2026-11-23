@@ -68,7 +68,7 @@ final class JsonObject
         try {
             return $hydrate();
         } catch (AttributeValueInvalid $e) {
-            throw new AttributeValueInvalid($parent . '/' . $e->attribute, $e->reason);
+            throw $e->at($parent . '/' . $e->attribute);
         }
     }
 }

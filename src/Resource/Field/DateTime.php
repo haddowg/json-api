@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\DateMessage;
 use haddowg\JsonApi\Resource\DateTimeParser;
 use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
 
@@ -308,7 +309,8 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
      * concern, not the cast's). A non-empty string that {@see parseWire()} refuses,
      * one in another shape (`last year`, a date-time with no offset), an impossible
      * day PHP would roll over (`2026-02-30`) or nonsense (`banana`), raises a typed
-     * {@see AttributeValueInvalid} (422 at `/data/attributes/<name>`): the cast is
+     * {@see AttributeValueInvalid} carrying {@see dateMessage()} (422 at
+     * `/data/attributes/<name>`): the cast is
      * the last gate before the value is written onto the domain object.
      */
     protected function deserializeValue(mixed $value): mixed
@@ -400,8 +402,33 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
 
         try {
             return $this->parseWire($value);
-        } catch (\InvalidArgumentException $e) {
-            throw new AttributeValueInvalid($this->name(), $e->getMessage());
+        } catch (\InvalidArgumentException) {
+            throw AttributeValueInvalid::forDate($this->name(), $this->dateMessage());
         }
+    }
+
+    /**
+     * The message refusing a value this field does not take, for its kind of date: the
+     * RFC 3339 `date-time`, `date` or `time` {@see schemaFormat()} names, and otherwise a
+     * date for a {@see Date}, a time for a {@see Time} and a date-time for any other. Its
+     * example is the field's declared one when that is a string, else the fixed one for an
+     * RFC 3339 kind, or {@see sampleWireValue()} for a format no keyword names. An adapter
+     * refusing a client date for this field itself reports this message too.
+     */
+    public function dateMessage(): DateMessage
+    {
+        $declared = $this->hasExample() ? $this->getExample() : null;
+        $example = \is_string($declared) && $declared !== '' ? $declared : null;
+
+        return match ($this->schemaFormat()) {
+            'date-time' => DateMessage::dateTime($example),
+            'date' => DateMessage::date($example),
+            'time' => DateMessage::time($example),
+            default => match (true) {
+                $this instanceof Date => DateMessage::date($example ?? $this->sampleWireValue()),
+                $this instanceof Time => DateMessage::time($example ?? $this->sampleWireValue()),
+                default => DateMessage::dateTimeLike($example ?? $this->sampleWireValue()),
+            },
+        };
     }
 }

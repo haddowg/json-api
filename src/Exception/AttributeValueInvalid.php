@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Exception;
 
+use haddowg\JsonApi\Resource\DateMessage;
 use haddowg\JsonApi\Schema\Error\Error;
 use haddowg\JsonApi\Schema\Error\ErrorSource;
 
@@ -16,17 +17,49 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * onto the domain object, so an uncoercible value is an unprocessable entity, not
  * a server fault. The error points at the attribute the client sent
  * (`/data/attributes/<name>`); the underlying reason is carried in `detail`.
+ *
+ * A value that is not the date it should be carries its {@see DateMessage}, and its
+ * `detail` is that message alone, with the attribute's pointer below
+ * `/data/attributes` as its subject. {@see at()} moves the error under a parent and keeps
+ * the message, so a nested date names its whole path.
  */
 final class AttributeValueInvalid extends AbstractJsonApiException implements DescribedErrorInterface
 {
+    public readonly string $reason;
+
+    /**
+     * @param string       $attribute the pointer below `/data/attributes`, `schedule/startsAt` for a nested member
+     * @param string       $reason    why the value is refused, ignored when `$date` is given
+     * @param ?DateMessage $date      the message refusing a value that is not a date
+     */
     public function __construct(
         public readonly string $attribute,
-        public readonly string $reason,
+        string $reason,
+        public readonly ?DateMessage $date = null,
     ) {
+        $this->reason = $date?->for($attribute) ?? $reason;
+
         parent::__construct(
-            \sprintf('The value for attribute "%s" is invalid: %s', $attribute, $reason),
+            $date !== null ? $this->reason : \sprintf('The value for attribute "%s" is invalid: %s', $attribute, $reason),
             self::describe()->status,
         );
+    }
+
+    /**
+     * The value at `$attribute` is not the date its field takes.
+     */
+    public static function forDate(string $attribute, DateMessage $date): self
+    {
+        return new self($attribute, '', $date);
+    }
+
+    /**
+     * The same error at another pointer, as a composite field moves a member's error under
+     * its own name.
+     */
+    public function at(string $attribute): self
+    {
+        return new self($attribute, $this->reason, $this->date);
     }
 
     public static function describe(): ErrorDescriptor
@@ -40,7 +73,7 @@ final class AttributeValueInvalid extends AbstractJsonApiException implements De
             exampleSource: '/data/attributes/publishedAt',
             feature: ErrorFeature::Writes,
             description: 'The server could not accept the value of the attribute at `source.pointer`, for example a date-time it cannot parse. Correct the value and send the request again.',
-            exampleDetail: 'The value for attribute "publishedAt" is invalid: "last year" is not an RFC 3339 date-time with an offset, such as 2026-11-05T09:42:00Z',
+            exampleDetail: 'publishedAt is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.',
         );
     }
 

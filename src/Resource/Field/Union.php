@@ -325,7 +325,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         } catch (AttributeValueInvalid $e) {
             $below = \str_starts_with($e->attribute, $member->name()) ? \substr($e->attribute, \strlen($member->name())) : '';
 
-            throw new AttributeValueInvalid(\ltrim($below, '/'), $e->reason);
+            throw $e->at(\ltrim($below, '/'));
         }
     }
 
@@ -347,7 +347,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         } catch (AttributeValueInvalid $e) {
             $below = self::pointerBelow($e, $member);
 
-            throw new AttributeValueInvalid($below === '' ? $this->name() : $this->name() . '/' . $below, $e->reason);
+            throw $e->at($below === '' ? $this->name() : $this->name() . '/' . $below);
         }
     }
 
@@ -359,7 +359,7 @@ final readonly class Union extends AbstractFieldValue implements NamedSchemaInte
         try {
             return $this->cast($value, $nested, $request, $creating);
         } catch (AttributeValueInvalid $e) {
-            throw new AttributeValueInvalid($e->attribute === '' ? $this->name() : $this->name() . '/' . $e->attribute, $e->reason);
+            throw $e->at($e->attribute === '' ? $this->name() : $this->name() . '/' . $e->attribute);
         }
     }
 

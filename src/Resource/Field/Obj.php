@@ -369,7 +369,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
             } catch (AttributeValueInvalid $e) {
                 $below = \str_starts_with($e->attribute, $field->name()) ? \substr($e->attribute, \strlen($field->name())) : '';
 
-                throw new AttributeValueInvalid(JsonObject::pointerSegment($key) . $below, $e->reason);
+                throw $e->at(JsonObject::pointerSegment($key) . $below);
             }
             $nested = Accessor::set($nested, $key, Accessor::get($scratch, $slot));
         }
@@ -432,7 +432,7 @@ final readonly class Obj extends AbstractFieldValue implements NamedSchemaInterf
                 } catch (AttributeValueInvalid $e) {
                     $below = self::pointerBelow($e, $field);
 
-                    throw new AttributeValueInvalid(JsonObject::pointerSegment($key) . ($below === '' ? '' : '/' . $below), $e->reason);
+                    throw $e->at(JsonObject::pointerSegment($key) . ($below === '' ? '' : '/' . $below));
                 }
             }
         });

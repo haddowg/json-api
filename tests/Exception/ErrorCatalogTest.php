@@ -66,6 +66,7 @@ use haddowg\JsonApi\Exception\SortingUnsupported;
 use haddowg\JsonApi\Exception\SortParamUnrecognized;
 use haddowg\JsonApi\Exception\TopLevelMemberNotAllowed;
 use haddowg\JsonApi\Exception\TopLevelMembersIncompatible;
+use haddowg\JsonApi\Resource\DateMessage;
 use haddowg\JsonApi\Tests\Exception\Fixture\PaymentRequired;
 use haddowg\JsonApi\Tests\Exception\Fixture\RivalResourceNotFound;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -196,7 +197,7 @@ final class ErrorCatalogTest extends TestCase
         yield 'ATOMIC_OPERATIONS_INVALID' => [new AtomicOperationsInvalid("Unknown atomic operation code 'upsert'.", '/atomic:operations/0/op')];
         yield 'ATTRIBUTE_WRITE_PROHIBITED' => [new AttributeWriteProhibited(['createdAt'])];
         yield 'ATTRIBUTE_MEMBER_UNRECOGNIZED' => [new AttributeMemberUnrecognized(['/data/attributes/colour'])];
-        yield 'ATTRIBUTE_VALUE_INVALID' => [new AttributeValueInvalid('publishedAt', '"last year" is not an RFC 3339 date-time with an offset, such as 2026-11-05T09:42:00Z')];
+        yield 'ATTRIBUTE_VALUE_INVALID' => [AttributeValueInvalid::forDate('publishedAt', DateMessage::dateTime())];
         yield 'FIELDSET_MEMBER_UNRECOGNIZED' => [new FieldsetMemberUnrecognized('articles', ['colour'])];
         yield 'FILTERING_UNRECOGNIZED' => [new FilterParamUnrecognized('colour')];
         yield 'INCLUSION_DEPTH_EXCEEDED' => [new InclusionDepthExceeded(['author.publisher.country'], 2)];
