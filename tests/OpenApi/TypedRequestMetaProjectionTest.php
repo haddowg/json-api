@@ -306,7 +306,7 @@ final class TypedRequestMetaProjectionTest extends TestCase
 
         $meta = self::arr(self::arr(self::arr(self::arr(self::schema($document, 'RoomsFetchOneDocument')['allOf'])[1])['properties'])['meta']);
         self::assertSame(['type' => ['integer', 'null']], $meta['additionalProperties']);
-        self::assertSame(['contract' => GeneratorContract::TYPED_REQUEST_META], self::arr($document['info'])['x-generator']);
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::TYPED_REQUEST_META)], self::arr($document['info'])['x-generator']);
     }
 
     #[Test]
@@ -343,7 +343,7 @@ final class TypedRequestMetaProjectionTest extends TestCase
     #[Test]
     public function aDocumentCarryingTypedRequestMetaStampsItsTier(): void
     {
-        self::assertSame(['contract' => GeneratorContract::TYPED_REQUEST_META], self::arr(self::project()['info'])['x-generator']);
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::TYPED_REQUEST_META)], self::arr(self::project()['info'])['x-generator']);
     }
 
     /**

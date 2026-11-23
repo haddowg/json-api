@@ -126,7 +126,7 @@ final class ThroughFilterProjectionTest extends TestCase
             $this->parameters(WhereIdIn::make('advertiser')->through('campaign.advertiser')->build())['filter[advertiser]']['schema'],
         );
         self::assertSame(
-            ['type' => 'object', 'properties' => ['min' => ['type' => 'string', 'format' => 'date'], 'max' => ['type' => 'string', 'format' => 'date']]],
+            ['type' => 'object', 'properties' => ['min' => ['type' => 'string', 'format' => 'date'], 'max' => ['type' => 'string', 'format' => 'date']], 'additionalProperties' => false],
             $this->parameters(DateRange::make('campaignDates', 'startDate')->through('campaign')->build())['filter[campaignDates]']['schema'],
         );
     }

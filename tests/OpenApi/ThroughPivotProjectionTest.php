@@ -52,7 +52,7 @@ final class ThroughPivotProjectionTest extends TestCase
         $document = $this->document(DateRange::make('addedAt', 'addedAt')->through('pivot')->build());
 
         self::assertSame(
-            ['type' => 'object', 'properties' => ['min' => ['type' => 'string', 'format' => 'date-time'], 'max' => ['type' => 'string', 'format' => 'date-time']]],
+            ['type' => 'object', 'properties' => ['min' => ['type' => 'string', 'format' => 'date-time'], 'max' => ['type' => 'string', 'format' => 'date-time']], 'additionalProperties' => false],
             $this->parameter($document, '/playlists/{id}/tracks', 'filter[addedAt]')['schema'],
         );
     }

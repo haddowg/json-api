@@ -234,6 +234,7 @@ final class FilterValueSchemaProjectionTest extends TestCase
             'schema' => [
                 'type' => 'object',
                 'properties' => ['min' => ['type' => 'number'], 'max' => ['type' => 'number']],
+                'additionalProperties' => false,
             ],
             'style' => 'deepObject',
             'explode' => true,
