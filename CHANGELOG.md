@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.0](https://github.com/haddowg/json-api/compare/v2.23.0...v2.24.0) (2026-11-23)
+
+
+### Features
+
+* give each kind of date one message, built in core ([#431](https://github.com/haddowg/json-api/issues/431)) ([7d67378](https://github.com/haddowg/json-api/commit/7d673787548f98d4325eb62fc113b9a33afc40be))
+
 ## [2.23.0](https://github.com/haddowg/json-api/compare/v2.22.0...v2.23.0) (2026-11-23)
 
 
