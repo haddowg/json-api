@@ -602,12 +602,13 @@ final class ContractWitnessServer
                     ->describedAs('Search title or summary.')->build(),
                 WhereAll::make('urgent', GreaterThan::make('wordCount')->fixed(1000), BooleanFilter::make('featured')->fixed(true))->build(),
                 // The value-schema fallback, one branch each: a boolean column,
-                // a temporal column (a string, and NOT the field's `date-time` format), a
+                // a temporal column (a string in the field's `date` format), a
                 // set over a list column (a list of what the projector will not guess), a
                 // relationship path it cannot resolve at all, and a presence-only filter
                 // whose value is read by nobody.
                 Where::make('featured')->build(),
                 Where::make('releasedOn')->build(),
+                WhereIn::make('publishedOn', 'publishedAt')->build(),
                 WhereIn::make('keywords')->example(['php', 'json'])->build(),
                 WhereThrough::make('author.name')->build(),
                 WhereNull::make('unpublished', 'publishedAt')->describedAs('Articles not yet published.'),
@@ -784,6 +785,10 @@ final class ContractWitnessServer
                 // A delimiter OAS cannot spell: the value documents as the one string
                 // the client sends, never as a list split on the wrong character.
                 WhereIdNotIn::make('excludeId')->delimiter(';')->build(),
+                // A date field reached through a relation documents its format, as one on
+                // the type does.
+                Where::make('articleReleasedOn', 'releasedOn')->through('articles')->build(),
+                WhereIn::make('articlesPublishedAt', 'publishedAt')->through('articles')->build(),
             ],
             sorts: [SortByField::make('id')],
             // The sort example a type declares in place of its first sort.

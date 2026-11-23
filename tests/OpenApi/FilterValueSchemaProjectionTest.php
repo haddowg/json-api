@@ -71,15 +71,15 @@ final class FilterValueSchemaProjectionTest extends TestCase
         yield 'a boolean column' => [Where::make('featured')->build(), ['schema' => ['type' => 'boolean']]];
         yield 'an explicit column, not the key' => [
             Where::make('published', 'published_at')->build(),
-            ['schema' => ['type' => 'string']],
+            ['schema' => ['type' => 'string', 'format' => 'date-time']],
         ];
 
-        // The fallback types the value and stops. A format, an enum or a length belongs
-        // to the field in a document body; the filter's operator decides what its own
-        // operand may be, and the fallback models no operator.
-        yield 'a date-time column carries no format' => [
+        // The fallback types the value and stops, except for a date: a comparison or list
+        // filter reads its value as the date its column holds, so it carries that date's
+        // format. An enum or a length belongs to the field in a document body.
+        yield 'a date-time column carries its format' => [
             Where::make('published', 'published_at')->build(),
-            ['schema' => ['type' => 'string']],
+            ['schema' => ['type' => 'string', 'format' => 'date-time']],
         ];
         yield 'an enum column carries no enum' => [Where::make('status')->build(), ['schema' => ['type' => 'string']]];
         yield 'a substring match over an enum column is still a plain string' => [
