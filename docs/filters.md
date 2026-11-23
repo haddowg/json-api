@@ -287,7 +287,8 @@ their wire value is **nested** — `?filter[<key>][min]=…&filter[<key>][max]=�
 (Symfony parses this into `['min' => '…', 'max' => '…']`) — and an apply runs *two*
 predicates (`min ≤ x` and `x ≤ max`), so a handler needs a dedicated
 `instanceof Range` arm (the reference `ArrayFilterHandler` ships one; an OpenAPI
-projection advertises the bounds as a `deepObject` parameter).
+projection advertises the bounds as a `deepObject` parameter whose object takes only
+`min` and `max`, with `additionalProperties: false`).
 
 Either bound may be omitted, so an open-ended range works — `min` alone is a `>=`,
 `max` alone a `<=`, and an entirely absent value is a no-op:

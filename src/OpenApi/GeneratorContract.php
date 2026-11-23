@@ -90,7 +90,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 43;
+    public const CONTRACT = 44;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -134,8 +134,10 @@ final class GeneratorContract
      * `additionalProperties: false`, and its identifier meta object, which now lists
      * `pivot` among its own properties. It also requires a discriminated union's
      * discriminator in each branch of its update schema, as its create schema does.
+     * Contract 44 did again, closing a range filter's `filter[<key>]` object of `min` and
+     * `max` with `additionalProperties: false`, wherever the filter is projected.
      */
-    public const BASELINE = 43;
+    public const BASELINE = 44;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API

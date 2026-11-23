@@ -107,11 +107,14 @@ readonly class Range implements \haddowg\JsonApi\Resource\Through\FiltersThrough
     public function describeQueryParameter(\haddowg\JsonApi\OpenApi\Schema $valueSchema): \haddowg\JsonApi\OpenApi\QueryParameterShape
     {
         // A Range's wire value is the nested object filter[<key>][min]/[max] — an OAS
-        // `deepObject` parameter whose bounds carry the per-bound value schema.
+        // `deepObject` parameter whose bounds carry the per-bound value schema, closed
+        // because bounds() refuses any other member.
         $bound = $this->boundSchema($valueSchema);
 
         return new \haddowg\JsonApi\OpenApi\QueryParameterShape(
-            \haddowg\JsonApi\OpenApi\Schema::ofType('object')->withProperties(['min' => $bound, 'max' => $bound]),
+            \haddowg\JsonApi\OpenApi\Schema::ofType('object')
+                ->withProperties(['min' => $bound, 'max' => $bound])
+                ->withAdditionalProperties(false),
             \haddowg\JsonApi\OpenApi\ParameterStyle::DeepObject,
             true,
         );
