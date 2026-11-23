@@ -100,12 +100,11 @@ final readonly class DateRange extends \haddowg\JsonApi\Resource\Filter\Range
      * bound is read strictly, in the shape it is documented as and only when the day
      * exists, so `banana`, `1997-05-21` for a date-time and `2026-02-30` are each refused.
      * An adapter validating a request's bounds asks this before any other rule, so a bad
-     * date is reported once, with this message, naming the parameter that carried it.
+     * date is reported once, with this message.
      *
-     * @param string $bound     `min` or `max`
-     * @param string $parameter the parameter the bound was sent as, such as `filter[published][min]`
+     * @param string $bound `min` or `max`
      */
-    public function invalidBound(mixed $value, string $bound, string $parameter): ?string
+    public function invalidBound(mixed $value, string $bound): ?\haddowg\JsonApi\Resource\DateMessage
     {
         if (\is_string($value)) {
             try {
@@ -118,7 +117,7 @@ final readonly class DateRange extends \haddowg\JsonApi\Resource\Filter\Range
             }
         }
 
-        return $this->dateMessage($bound)->for($parameter);
+        return $this->dateMessage($bound);
     }
 
     /**

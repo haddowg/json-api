@@ -112,9 +112,9 @@ final class SchemaFormatTest extends TestCase
     #[Test]
     public function theSampleWireValueRendersTheConfiguredFormat(): void
     {
-        self::assertSame('05/09/2024 09:08', DateTime::make('x')->format('d/m/Y H:i')->build()->sampleWireValue());
-        self::assertSame('2024-09-05', Date::make('d')->build()->sampleWireValue());
-        self::assertSame('09:08:07', Time::make('t')->build()->sampleWireValue());
+        self::assertSame('25/10/2026 14:30', DateTime::make('x')->format('d/m/Y H:i')->build()->sampleWireValue());
+        self::assertSame('2026-10-25', Date::make('d')->build()->sampleWireValue());
+        self::assertSame('14:30:00', Time::make('t')->build()->sampleWireValue());
     }
 
     /**

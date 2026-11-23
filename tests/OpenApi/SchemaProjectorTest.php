@@ -169,7 +169,7 @@ final class SchemaProjectorTest extends TestCase
 
         self::assertSame('string', $this->at($schema, 'type'));
         $this->missing($schema, 'format');
-        self::assertStringContainsString('`09:08:07`', $this->stringAt($schema, 'description'));
+        self::assertStringContainsString('`14:30:00`', $this->stringAt($schema, 'description'));
     }
 
     #[Test]
@@ -196,7 +196,7 @@ final class SchemaProjectorTest extends TestCase
 
         self::assertSame('string', $this->at($schema, 'type'));
         $this->missing($schema, 'format');
-        self::assertStringContainsString('`05/09/2024 09:08`', $this->stringAt($schema, 'description'));
+        self::assertStringContainsString('`25/10/2026 14:30`', $this->stringAt($schema, 'description'));
     }
 
     #[Test]
@@ -206,7 +206,7 @@ final class SchemaProjectorTest extends TestCase
 
         self::assertSame('string', $this->at($schema, 'type'));
         $this->missing($schema, 'format');
-        self::assertStringContainsString('`05/09/2024`', $this->stringAt($schema, 'description'));
+        self::assertStringContainsString('`25/10/2026`', $this->stringAt($schema, 'description'));
     }
 
     #[Test]
@@ -217,7 +217,7 @@ final class SchemaProjectorTest extends TestCase
         );
 
         self::assertStringStartsWith('When it was archived.', $this->stringAt($schema, 'description'));
-        self::assertStringContainsString('`05/09/2024 09:08`', $this->stringAt($schema, 'description'));
+        self::assertStringContainsString('`25/10/2026 14:30`', $this->stringAt($schema, 'description'));
     }
 
     #[Test]

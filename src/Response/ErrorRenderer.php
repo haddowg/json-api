@@ -8,6 +8,7 @@ use haddowg\JsonApi\Document\TopLevelMembers;
 use haddowg\JsonApi\Exception\JsonApiExceptionInterface;
 use haddowg\JsonApi\Schema\Document\ErrorDocument;
 use haddowg\JsonApi\Schema\Error\Error;
+use haddowg\JsonApi\Schema\Error\ErrorDetailVariantResolverInterface;
 use haddowg\JsonApi\Schema\Error\ErrorMessageResolverInterface;
 use haddowg\JsonApi\Schema\JsonApiObject;
 use haddowg\JsonApi\Schema\Link\DocumentLinks;
@@ -17,7 +18,9 @@ use haddowg\JsonApi\Transformer\DocumentTransformer;
  * Renders errors to their JSON:API arrays without a server or a request, for an error
  * body built outside the request lifecycle. The output is what {@see ErrorResponse}
  * renders for the same errors: each error's `title` and `detail` go through the
- * optional {@see ErrorMessageResolverInterface} by `code`, its `context` fills their
+ * optional {@see ErrorMessageResolverInterface} by `code`, a `detail` first by its
+ * `detailVariant` when the resolver is also an {@see ErrorDetailVariantResolverInterface},
+ * its `context` fills their
  * `{placeholder}` tokens, and its links bind to `$baseUri` unless they pinned their own.
  *
  * Inside the lifecycle, throw a {@see JsonApiExceptionInterface} or return an
@@ -126,7 +129,8 @@ final class ErrorRenderer
     private static function resolve(Error $error, ?ErrorMessageResolverInterface $resolver, string $baseUri): Error
     {
         $title = ($error->code !== '' ? $resolver?->title($error->code) : null) ?? $error->title;
-        $detail = ($error->code !== '' ? $resolver?->detail($error->code) : null) ?? $error->detail;
+        $variant = $error->detailVariant !== '' && $resolver instanceof ErrorDetailVariantResolverInterface ? $resolver->detailVariant($error->detailVariant) : null;
+        $detail = $variant ?? ($error->code !== '' ? $resolver?->detail($error->code) : null) ?? $error->detail;
 
         return new Error(
             id: $error->id,
@@ -138,6 +142,7 @@ final class ErrorRenderer
             links: $error->links?->rebasedTo($baseUri),
             meta: $error->meta,
             context: $error->context,
+            detailVariant: $error->detailVariant,
         );
     }
 

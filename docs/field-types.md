@@ -165,20 +165,20 @@ else. `Time`'s `H:i:s` default takes `09:42:00` and refuses `09:42` and `09:42:0
 `DateTime` given `->format('d/m/Y H:i')` takes only `05/11/2026 09:42`, and reads it as
 written, 5 November, rather than the 11 May PHP's date constructor would make of it.
 
-The error's `detail` names the attribute by its path below `/data/attributes` and shows a
-value the field takes, with one message for each kind of date:
+The error's `detail` is one message for each kind of date, and its `source.pointer` says
+which attribute it was, `/data/attributes/window/startsAt` for a date inside an `Obj`:
 
-- `publishedAt is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.`
-- `bornOn is not a date like 2026-10-01.`
-- `opensAt is not a time like 09:42:00Z.`
+- `This value is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.`
+- `This value is not a date like 2026-10-01.`
+- `This value is not a time like 09:42:00Z.`
 
 The example is the field's own `->example()` when it declares a string one. A field whose
-format no keyword names shows a value in that format instead, the one its schema
-description shows, and says `date-time like` for a `DateTime`, so a `->format('d/m/Y H:i')`
-field reads `heldAt is not a date-time like 05/09/2024 09:08.` A date inside an `Obj` or a
-list names its whole path, such as `window/startsAt` or `slots/1/day`. A date range filter's
-bound is refused with the same message, naming its parameter, and an adapter that validates
-a date itself reports the field's `dateMessage()`.
+format no keyword names shows 25 October 2026 at 14:30 UTC in that format instead, the value
+its schema description shows, and says `date-time like` for a `DateTime`, so a
+`->format('d/m/Y H:i')` field reads `This value is not a date-time like 25/10/2026 14:30.` A
+date filter's bound or value is refused with the same message, and an adapter that validates a
+date itself reports the field's `dateMessage()`. Each message is translatable under its own key,
+see [date messages](errors-and-exceptions.md#date-messages-and-their-own-keys).
 
 The check runs before a `fillUsing()` or `deserializeUsing()` hook too. The hook still
 receives the string as sent, but only once it has passed. An adapter that reads a client

@@ -114,7 +114,7 @@ final readonly class ErrorDescriptor
      * @param array<string, scalar|\Stringable> $context the interpolation values, keyed as {@see $context} declares
      * @param array<string, mixed>              $meta
      */
-    public function toError(string $detail, array $context = [], ?ErrorSource $source = null, array $meta = []): Error
+    public function toError(string $detail, array $context = [], ?ErrorSource $source = null, array $meta = [], string $detailVariant = ''): Error
     {
         return new Error(
             status: (string) $this->status,
@@ -124,6 +124,7 @@ final readonly class ErrorDescriptor
             source: $source,
             meta: $meta,
             context: $context,
+            detailVariant: $detailVariant,
         );
     }
 }

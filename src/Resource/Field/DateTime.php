@@ -53,6 +53,12 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     private const NESTED_FORMAT = 'Y-m-d\\TH:i:s.uP';
 
     /**
+     * The instant {@see sampleWireValue()} renders, its day above 12 so a day and a month
+     * cannot be read the wrong way round.
+     */
+    private const string SAMPLE = '2026-10-25T14:30:00Z';
+
+    /**
      * The reference instants {@see schemaFormat()} renders. Between them they force
      * every value-dependent format character to give itself away: a single-digit
      * month / day / hour (so an unpadded `n` / `j` / `G` renders one character short),
@@ -146,13 +152,14 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     }
 
     /**
-     * A representative serialized value, rendered from the first reference instant. The
-     * OpenAPI projection uses it to describe the wire shape in prose when
-     * {@see schemaFormat()} finds no standard keyword that names it.
+     * A representative serialized value: 25 October 2026 at 14:30 UTC in the configured
+     * format and output zone. The OpenAPI projection uses it to describe the wire shape in
+     * prose when {@see schemaFormat()} finds no standard keyword that names it, and
+     * {@see dateMessage()} shows it as the example, so the two always agree.
      */
     public function sampleWireValue(): string
     {
-        return $this->inOutputZone(self::probe(self::PROBES[0]))->format($this->format);
+        return $this->inOutputZone(new \DateTimeImmutable(self::SAMPLE))->format($this->format);
     }
 
     /**
@@ -427,7 +434,7 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
             default => match (true) {
                 $this instanceof Date => DateMessage::date($example ?? $this->sampleWireValue()),
                 $this instanceof Time => DateMessage::time($example ?? $this->sampleWireValue()),
-                default => DateMessage::dateTimeLike($example ?? $this->sampleWireValue()),
+                default => DateMessage::formattedDateTime($example ?? $this->sampleWireValue()),
             },
         };
     }

@@ -233,6 +233,60 @@ wire, so a document describing what a client receives has nothing to say about i
 placeholders are a PHP-side authoring API and live here, where you are writing the
 replacement templates.
 
+### Date messages and their own keys
+
+A value that is not the date it should be has one message per kind of date, whether it is a
+temporal attribute's write or a date filter's bound or value. The error's `source` says which
+value it was, so the message names none:
+
+| Kind | Default `detail` |
+| --- | --- |
+| `date_time` | `This value is not an RFC 3339 date-time with an offset, such as {example}.` |
+| `date` | `This value is not a date like {example}.` |
+| `time` | `This value is not a time like {example}.` |
+| `formatted_date_time` | `This value is not a date-time like {example}.`, for a `DateTime` whose format no RFC 3339 keyword names |
+
+`{example}` is the field's or filter's declared `->example()`, else `2026-10-01T00:00:00Z`,
+`2026-10-01` or `09:42:00Z`. A field in a format of its own shows 25 October 2026 at 14:30 UTC
+in that format, as its schema description does.
+
+These errors keep their codes, `ATTRIBUTE_VALUE_INVALID` and `FILTER_VALUE_INVALID`, and carry
+a more specific key below the code as the error's `detailVariant`, such as
+`ATTRIBUTE_VALUE_INVALID.date_time` or `FILTER_VALUE_INVALID.date`. A resolver that also
+implements `ErrorDetailVariantResolverInterface` is asked for that key first, then for the
+code's own `detail()`, so a resolver written against `ErrorMessageResolverInterface` alone keeps
+working and its code-level detail still applies:
+
+```php
+use haddowg\JsonApi\Schema\Error\ErrorDetailVariantResolverInterface;
+
+$server = Server::make()->withErrorMessageResolver(
+    new class implements ErrorDetailVariantResolverInterface {
+        public function title(string $code): ?string
+        {
+            return null;
+        }
+
+        public function detail(string $code): ?string
+        {
+            return null;
+        }
+
+        public function detailVariant(string $variant): ?string
+        {
+            return [
+                'ATTRIBUTE_VALUE_INVALID.date' => 'Ce n\'est pas une date comme {example}.',
+                'FILTER_VALUE_INVALID.date' => 'Ce n\'est pas une date comme {example}.',
+            ][$variant] ?? null;
+        }
+    },
+);
+```
+
+An adapter's own validation error for a date attribute, such as a `422` under
+`VALIDATION_FAILED`, carries the `ATTRIBUTE_VALUE_INVALID` keys too, so one translation covers
+both.
+
 ## Unexpected throwables: the generic 500
 
 The error handler catches *any* `\Throwable`, not just `JsonApiExceptionInterface`.

@@ -22,6 +22,11 @@ use haddowg\JsonApi\Schema\Link\ErrorLinks;
  * keyed by the stable `$code`. `$context` is interpolation input only — it is
  * @internal and never serialized to the wire.
  *
+ * `$detailVariant` names a more specific `detail` translation, such as
+ * `ATTRIBUTE_VALUE_INVALID.date_time` for a date-time a write got wrong, which an
+ * {@see ErrorDetailVariantResolverInterface} is asked for before the code's own. It is
+ * never serialized either.
+ *
  * @see https://jsonapi.org/format/1.1/#error-objects
  */
 final readonly class Error
@@ -40,7 +45,16 @@ final readonly class Error
         public ?ErrorLinks $links = null,
         public array $meta = [],
         public array $context = [],
+        public string $detailVariant = '',
     ) {}
+
+    /**
+     * This error at another `source`, every other member kept.
+     */
+    public function withSource(?ErrorSource $source): self
+    {
+        return new self($this->id, $this->status, $this->code, $this->title, $this->detail, $source, $this->links, $this->meta, $this->context, $this->detailVariant);
+    }
 
     /**
      * @internal

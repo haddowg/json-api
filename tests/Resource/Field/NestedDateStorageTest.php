@@ -88,7 +88,7 @@ final class NestedDateStorageTest extends TestCase
         $field = Obj::make('window')->fields(DateTime::make('startsAt'))->build();
 
         $this->expectException(AttributeValueInvalid::class);
-        $this->expectExceptionMessage('window/startsAt is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.');
+        $this->expectExceptionMessage('This value is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.');
         $this->hydrate($field, ['startsAt' => '2026-11-03 10:52:53']);
     }
 
@@ -252,7 +252,7 @@ final class NestedDateStorageTest extends TestCase
         self::assertSame(['window' => ['startsAt' => null]], $this->hydrate($field, ['startsAt' => null]));
 
         $this->expectException(AttributeValueInvalid::class);
-        $this->expectExceptionMessage('window/startsAt is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.');
+        $this->expectExceptionMessage('This value is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.');
         $this->hydrate($field, ['startsAt' => '2026-02-30T10:00:00Z']);
     }
 

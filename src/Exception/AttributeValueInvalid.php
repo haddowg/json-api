@@ -18,10 +18,10 @@ use haddowg\JsonApi\Schema\Error\ErrorSource;
  * a server fault. The error points at the attribute the client sent
  * (`/data/attributes/<name>`); the underlying reason is carried in `detail`.
  *
- * A value that is not the date it should be carries its {@see DateMessage}, and its
- * `detail` is that message alone, with the attribute's pointer below
- * `/data/attributes` as its subject. {@see at()} moves the error under a parent and keeps
- * the message, so a nested date names its whole path.
+ * A value that is not the date it should be carries its {@see DateMessage}: its `detail`
+ * is that message alone, its context fills an `{example}` placeholder, and a resolver may
+ * translate it under `ATTRIBUTE_VALUE_INVALID.date_time`, `.date`, `.time` or
+ * `.formatted_date_time`. {@see at()} moves the error under a parent and keeps the message.
  */
 final class AttributeValueInvalid extends AbstractJsonApiException implements DescribedErrorInterface
 {
@@ -37,7 +37,7 @@ final class AttributeValueInvalid extends AbstractJsonApiException implements De
         string $reason,
         public readonly ?DateMessage $date = null,
     ) {
-        $this->reason = $date?->for($attribute) ?? $reason;
+        $this->reason = $date?->message() ?? $reason;
 
         parent::__construct(
             $date !== null ? $this->reason : \sprintf('The value for attribute "%s" is invalid: %s', $attribute, $reason),
@@ -68,12 +68,12 @@ final class AttributeValueInvalid extends AbstractJsonApiException implements De
             code: 'ATTRIBUTE_VALUE_INVALID',
             status: 422,
             title: 'Attribute value is invalid',
-            context: ['attribute' => ErrorContextType::Str, 'reason' => ErrorContextType::Str],
+            context: ['attribute' => ErrorContextType::Str, 'reason' => ErrorContextType::Str, 'example' => ErrorContextType::Str],
             source: ErrorSourceShape::Pointer,
             exampleSource: '/data/attributes/publishedAt',
             feature: ErrorFeature::Writes,
             description: 'The server could not accept the value of the attribute at `source.pointer`, for example a date-time it cannot parse. Correct the value and send the request again.',
-            exampleDetail: 'publishedAt is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.',
+            exampleDetail: 'This value is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.',
         );
     }
 
@@ -82,8 +82,9 @@ final class AttributeValueInvalid extends AbstractJsonApiException implements De
         return [
             self::describe()->toError(
                 detail: $this->getMessage(),
-                context: ['attribute' => $this->attribute, 'reason' => $this->reason],
+                context: ['attribute' => $this->attribute, 'reason' => $this->reason, ...$this->date?->context() ?? []],
                 source: ErrorSource::fromPointer('/data/attributes/' . $this->attribute),
+                detailVariant: $this->date?->detailVariant(self::describe()->code) ?? '',
             ),
         ];
     }

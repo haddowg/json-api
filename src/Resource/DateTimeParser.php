@@ -72,7 +72,7 @@ final class DateTimeParser
     public static function parseDateTime(string $value): \DateTimeImmutable
     {
         if (\preg_match(self::DATE_TIME, $value) !== 1) {
-            throw new \InvalidArgumentException(DateMessage::dateTime()->for('"' . $value . '"'));
+            throw new \InvalidArgumentException(\sprintf('"%s" is not an RFC 3339 date-time with an offset, such as 2026-11-05T09:42:00Z', $value));
         }
 
         return self::parse($value);
@@ -88,7 +88,7 @@ final class DateTimeParser
     public static function parseDate(string $value, ?\DateTimeZone $timezone = null): \DateTimeImmutable
     {
         if (\preg_match(self::DATE, $value) !== 1) {
-            throw new \InvalidArgumentException(DateMessage::date()->for('"' . $value . '"'));
+            throw new \InvalidArgumentException(\sprintf('"%s" is not a full date, such as 2026-11-05', $value));
         }
 
         return self::parse($value, $timezone);
@@ -104,7 +104,7 @@ final class DateTimeParser
     public static function parseTime(string $value): \DateTimeImmutable
     {
         if (\preg_match(self::TIME, $value) !== 1) {
-            throw new \InvalidArgumentException(DateMessage::time()->for('"' . $value . '"'));
+            throw new \InvalidArgumentException(\sprintf('"%s" is not an RFC 3339 time with an offset, such as 09:42:00Z', $value));
         }
 
         return self::parse($value);
