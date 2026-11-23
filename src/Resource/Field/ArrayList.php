@@ -263,7 +263,7 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
             try {
                 $list[] = $union->cast($item, true, $request, $creating);
             } catch (AttributeValueInvalid $e) {
-                throw new AttributeValueInvalid($e->attribute === '' ? (string) $index : $index . '/' . $e->attribute, $e->reason);
+                throw $e->at($e->attribute === '' ? (string) $index : $index . '/' . $e->attribute);
             }
         }
 
@@ -290,7 +290,7 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
                 } catch (AttributeValueInvalid $e) {
                     $below = self::pointerBelow($e, $this->elementUnion);
 
-                    throw new AttributeValueInvalid($below === '' ? $pointer : $pointer . '/' . $below, $e->reason);
+                    throw $e->at($below === '' ? $pointer : $pointer . '/' . $below);
                 }
 
                 continue;
@@ -323,7 +323,7 @@ final readonly class ArrayList extends AbstractFieldValue implements NamedSchema
         try {
             return $this->castUnionElements($value, $request, $creating);
         } catch (AttributeValueInvalid $e) {
-            throw new AttributeValueInvalid($this->name() . '/' . $e->attribute, $e->reason);
+            throw $e->at($this->name() . '/' . $e->attribute);
         }
     }
 

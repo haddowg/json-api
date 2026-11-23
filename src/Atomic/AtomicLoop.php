@@ -140,15 +140,6 @@ final class AtomicLoop
             $newSource = $source;
         }
 
-        return new Error(
-            id: $error->id,
-            status: $error->status,
-            code: $error->code,
-            title: $error->title,
-            detail: $error->detail,
-            source: $newSource,
-            links: $error->links,
-            meta: $error->meta,
-        );
+        return $error->withSource($newSource);
     }
 }

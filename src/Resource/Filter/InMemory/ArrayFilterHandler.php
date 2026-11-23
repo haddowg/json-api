@@ -447,6 +447,12 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      */
     private function compare(mixed $actual, string $operator, mixed $expected): bool
     {
+        // A date filter value compares the stored date as a database compares the column:
+        // by day, by time of day or as an instant.
+        if ($expected instanceof \haddowg\JsonApi\Resource\Filter\DateOperand && $actual instanceof \DateTimeInterface) {
+            [$actual, $expected] = [$expected->comparable($actual), $expected->comparable($expected)];
+        }
+
         return match ($operator) {
             '=', '==' => $actual == $expected,
             '===' => $actual === $expected,
@@ -652,9 +658,16 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      */
     private function whereIn(string $column, array $values, bool $negate): \Closure
     {
-        return static function (mixed $row) use ($column, $values, $negate): bool {
+        return function (mixed $row) use ($column, $values, $negate): bool {
             $actual = self::column($row, $column);
-            $contained = \in_array($actual, $values, false);
+            $contained = false;
+            foreach ($values as $value) {
+                if ($value instanceof \haddowg\JsonApi\Resource\Filter\DateOperand ? $this->compare($actual, '=', $value) : $actual == $value) {
+                    $contained = true;
+
+                    break;
+                }
+            }
 
             return $negate ? !$contained : $contained;
         };

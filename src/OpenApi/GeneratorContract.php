@@ -90,7 +90,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 44;
+    public const CONTRACT = 45;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -136,8 +136,11 @@ final class GeneratorContract
      * discriminator in each branch of its update schema, as its create schema does.
      * Contract 44 did again, closing a range filter's `filter[<key>]` object of `min` and
      * `max` with `additionalProperties: false`, wherever the filter is projected.
+     * Contract 45 did again, giving a comparison or list filter's value over a `DateTime`,
+     * `Date` or `Time` field, on the type or reached through relations, the RFC 3339
+     * `format` that field writes.
      */
-    public const BASELINE = 44;
+    public const BASELINE = 45;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API

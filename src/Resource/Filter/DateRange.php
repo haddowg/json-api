@@ -29,10 +29,9 @@ final readonly class DateRange extends \haddowg\JsonApi\Resource\Filter\Range
      * non-match.
      *
      * A regex cannot reject a calendar-invalid date (`2026-02-30T00:00:00Z` matches the
-     * shape), so the *temporal* validity a regex can't express is enforced by the
-     * framework adapter's pre-provider filter-value validation, which additionally runs
-     * each present bound through the deserializer and rejects a value that does not
-     * coerce to `\DateTimeInterface` as the same clean `400`. When that validation is
+     * shape), so the framework adapter's pre-provider filter-value validation asks
+     * {@see invalidBound()} first, which checks the shape and the day together and answers
+     * one message for either as the same clean `400`. When that validation is
      * absent a handler skips such a bound identically on every provider (see
      * {@see \haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler::range()}).
      */
@@ -73,6 +72,52 @@ final readonly class DateRange extends \haddowg\JsonApi\Resource\Filter\Range
     public static function make(string $key, ?string $column = null): DateRangeBuilder
     {
         return DateRangeBuilder::make($key, $column);
+    }
+
+    /**
+     * The message refusing a bound that is not the date this range takes: a full date when
+     * it compares calendar days, else an RFC 3339 date-time with an offset. Its example is
+     * the declared one for `$bound`: the example itself when it is a string, or its `min`
+     * or `max` member when it is an object of bounds.
+     *
+     * @param ?string $bound `min` or `max`
+     */
+    public function dateMessage(?string $bound = null): \haddowg\JsonApi\Resource\DateMessage
+    {
+        $declared = $this->hasExample() ? $this->getExample() : null;
+        if (\is_array($declared)) {
+            $declared = $declared[$bound ?? 'min'] ?? $declared[$bound === 'max' ? 'min' : 'max'] ?? null;
+        }
+        $example = \is_string($declared) && $declared !== '' ? $declared : null;
+
+        return $this->calendarDays
+            ? \haddowg\JsonApi\Resource\DateMessage::date($example)
+            : \haddowg\JsonApi\Resource\DateMessage::dateTime($example);
+    }
+
+    /**
+     * The message refusing a present bound, `null` when it is the date this range takes. A
+     * bound is read strictly, in the shape it is documented as and only when the day
+     * exists, so `banana`, `1997-05-21` for a date-time and `2026-02-30` are each refused.
+     * An adapter validating a request's bounds asks this before any other rule, so a bad
+     * date is reported once, with this message.
+     *
+     * @param string $bound `min` or `max`
+     */
+    public function invalidBound(mixed $value, string $bound): ?\haddowg\JsonApi\Resource\DateMessage
+    {
+        if (\is_string($value)) {
+            try {
+                $this->calendarDays
+                    ? \haddowg\JsonApi\Resource\DateTimeParser::parseDate($value)
+                    : \haddowg\JsonApi\Resource\DateTimeParser::parseDateTime($value);
+
+                return null;
+            } catch (\InvalidArgumentException) {
+            }
+        }
+
+        return $this->dateMessage($bound);
     }
 
     /**

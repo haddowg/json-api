@@ -321,10 +321,28 @@ whatever zone the request or the server runs in. Declare `->calendarDays()` your
 range over a date column no field of the type backs, such as a related type's or a pivot's. A `DateRange` bound is read with
 [`DateTimeParser`](../src/Resource/DateTimeParser.php), so an impossible date such as
 `2026-02-30T00:00:00Z` stays a string instead of rolling over to 2 March, and the
-adapter answers it with the same `400`. Like [`WhereThrough`](#traversing-a-relationship-path)
+adapter answers it with the same `400`. The adapter asks the range's `invalidBound()` before
+any other rule, so each bad bound is one error with the message a date attribute uses:
+`This value is not an RFC 3339 date-time with an offset, such as 2026-10-01T00:00:00Z.`, or
+`This value is not a date like 2026-10-01.` over calendar days, with `source.parameter`
+naming the filter. The example is the bound's member of the range's declared `->example()`,
+or the example itself when it is a string. Like [`WhereThrough`](#traversing-a-relationship-path)
 these are data-layer-specific: core ships the metadata and the reference in-memory
 apply, and a database adapter translates each into two push-down `andWhere`
 predicates.
+
+A `Where` comparing with `=`, `!=`, `<`, `<=`, `>` or `>=`, a `WhereIn` and a `WhereNotIn`
+read their values as dates when the column they compare is a `DateTime`, `Date` or `Time`
+field of the type, or the field a `->through()` path reaches, and they declare no value
+constraints of their own. `DateFilterValue::fieldFor()` finds that field, and an adapter
+refuses each value or list member the field does not take with the field's date message, one
+error per value. A substring match such as `Contains` and a filter with its own constraints
+are left as they are. Such a filter, unless it declares a deserializer of its own, reads
+each value as a `DateOperand`, a `\DateTimeImmutable` that knows whether it is a date, a
+time or a date-time, once a `ThroughPathResolver` resolves it. A database adapter binds it
+as the column's date type, and the reference in-memory handler compares a date by its day,
+a time by its time of day and a date-time as an instant, so both match the same rows. The
+parameter documents the field's `format`.
 
 ### Refinement helpers
 

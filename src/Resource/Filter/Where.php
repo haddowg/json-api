@@ -97,4 +97,16 @@ final readonly class Where implements \haddowg\JsonApi\Resource\Through\FiltersT
     {
         return \haddowg\JsonApi\Resource\Through\FilterLeafValues::single($this->resolvedThrough, $this->key, $value);
     }
+
+    /**
+     * A copy reading its values through `$deserialize`.
+     *
+     * @internal
+     *
+     * @param \Closure(mixed): mixed $deserialize
+     */
+    public function withDeserializer(\Closure $deserialize): static
+    {
+        return $this->rebuilt(['deserialize' => $deserialize]);
+    }
 }

@@ -6,6 +6,7 @@ namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Exception\AttributeValueInvalid;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
+use haddowg\JsonApi\Resource\DateMessage;
 use haddowg\JsonApi\Resource\DateTimeParser;
 use haddowg\JsonApi\Resource\Field\Internal\TimezoneName;
 
@@ -50,6 +51,12 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
      * What a nested child stores: its instant in UTC, to the microsecond.
      */
     private const NESTED_FORMAT = 'Y-m-d\\TH:i:s.uP';
+
+    /**
+     * The instant {@see sampleWireValue()} renders, its day above 12 so a day and a month
+     * cannot be read the wrong way round.
+     */
+    private const string SAMPLE = '2026-10-25T14:30:00Z';
 
     /**
      * The reference instants {@see schemaFormat()} renders. Between them they force
@@ -145,13 +152,14 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
     }
 
     /**
-     * A representative serialized value, rendered from the first reference instant. The
-     * OpenAPI projection uses it to describe the wire shape in prose when
-     * {@see schemaFormat()} finds no standard keyword that names it.
+     * A representative serialized value: 25 October 2026 at 14:30 UTC in the configured
+     * format and output zone. The OpenAPI projection uses it to describe the wire shape in
+     * prose when {@see schemaFormat()} finds no standard keyword that names it, and
+     * {@see dateMessage()} shows it as the example, so the two always agree.
      */
     public function sampleWireValue(): string
     {
-        return $this->inOutputZone(self::probe(self::PROBES[0]))->format($this->format);
+        return $this->inOutputZone(new \DateTimeImmutable(self::SAMPLE))->format($this->format);
     }
 
     /**
@@ -308,7 +316,8 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
      * concern, not the cast's). A non-empty string that {@see parseWire()} refuses,
      * one in another shape (`last year`, a date-time with no offset), an impossible
      * day PHP would roll over (`2026-02-30`) or nonsense (`banana`), raises a typed
-     * {@see AttributeValueInvalid} (422 at `/data/attributes/<name>`): the cast is
+     * {@see AttributeValueInvalid} carrying {@see dateMessage()} (422 at
+     * `/data/attributes/<name>`): the cast is
      * the last gate before the value is written onto the domain object.
      */
     protected function deserializeValue(mixed $value): mixed
@@ -400,8 +409,33 @@ readonly class DateTime extends AbstractFieldValue implements AcceptsDefaultOutp
 
         try {
             return $this->parseWire($value);
-        } catch (\InvalidArgumentException $e) {
-            throw new AttributeValueInvalid($this->name(), $e->getMessage());
+        } catch (\InvalidArgumentException) {
+            throw AttributeValueInvalid::forDate($this->name(), $this->dateMessage());
         }
+    }
+
+    /**
+     * The message refusing a value this field does not take, for its kind of date: the
+     * RFC 3339 `date-time`, `date` or `time` {@see schemaFormat()} names, and otherwise a
+     * date for a {@see Date}, a time for a {@see Time} and a date-time for any other. Its
+     * example is the field's declared one when that is a string, else the fixed one for an
+     * RFC 3339 kind, or {@see sampleWireValue()} for a format no keyword names. An adapter
+     * refusing a client date for this field itself reports this message too.
+     */
+    public function dateMessage(): DateMessage
+    {
+        $declared = $this->hasExample() ? $this->getExample() : null;
+        $example = \is_string($declared) && $declared !== '' ? $declared : null;
+
+        return match ($this->schemaFormat()) {
+            'date-time' => DateMessage::dateTime($example),
+            'date' => DateMessage::date($example),
+            'time' => DateMessage::time($example),
+            default => match (true) {
+                $this instanceof Date => DateMessage::date($example ?? $this->sampleWireValue()),
+                $this instanceof Time => DateMessage::time($example ?? $this->sampleWireValue()),
+                default => DateMessage::formattedDateTime($example ?? $this->sampleWireValue()),
+            },
+        };
     }
 }

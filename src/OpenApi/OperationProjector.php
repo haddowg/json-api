@@ -1588,6 +1588,12 @@ final class OperationProjector
             // string can satisfy, such as `format: uuid`, documents as the string it is.
             if ($valueSchema->toArray() === []) {
                 $valueSchema = $valueSchema->withType($this->derivedFilterValueType($filter, $fields) ?? 'string');
+                // A comparison or list filter over a date field reads its values as that
+                // date, so it documents the RFC 3339 format the field writes.
+                $format = \haddowg\JsonApi\Resource\Filter\DateFilterValue::fieldFor($filter, $fields)?->schemaFormat();
+                if ($format !== null) {
+                    $valueSchema = $valueSchema->withFormat($format);
+                }
             } elseif (self::onlyAStringSatisfies($valueSchema)) {
                 $valueSchema = $valueSchema->withType('string');
             }

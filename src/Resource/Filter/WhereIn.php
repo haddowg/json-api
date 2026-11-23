@@ -90,4 +90,16 @@ final readonly class WhereIn implements \haddowg\JsonApi\Resource\Through\Filter
     {
         return \haddowg\JsonApi\Resource\Through\FilterLeafValues::members($this->resolvedThrough, $this->key, $value, $this->list, $this->delimiter);
     }
+
+    /**
+     * A copy reading its values through `$deserialize`.
+     *
+     * @internal
+     *
+     * @param \Closure(list<mixed>): list<mixed> $deserialize
+     */
+    public function withDeserializer(\Closure $deserialize): static
+    {
+        return $this->rebuilt(['deserialize' => $deserialize]);
+    }
 }
