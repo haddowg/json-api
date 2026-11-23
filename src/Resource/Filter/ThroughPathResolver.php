@@ -116,6 +116,16 @@ final class ThroughPathResolver
      */
     public function resolve(FilterInterface $filter, iterable $fields, ?RelationHop $under = null, string $type = ''): FilterInterface
     {
+        $fields = self::listed($fields);
+
+        return DateFilterValue::withDateOperands($this->resolvePath($filter, $fields, $under, $type), $fields);
+    }
+
+    /**
+     * @param list<FieldInterface> $fields
+     */
+    private function resolvePath(FilterInterface $filter, array $fields, ?RelationHop $under, string $type): FilterInterface
+    {
         if (($filter instanceof WhereIdIn || $filter instanceof WhereIdNotIn) && $filter->throughRelations() === null) {
             $filter = $this->relatedIds($filter, self::listed($fields));
         }

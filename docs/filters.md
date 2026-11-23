@@ -337,7 +337,12 @@ field of the type, or the field a `->through()` path reaches, and they declare n
 constraints of their own. `DateFilterValue::fieldFor()` finds that field, and an adapter
 refuses each value or list member the field does not take with the field's date message, one
 error per value. A substring match such as `Contains` and a filter with its own constraints
-are left as they are.
+are left as they are. Such a filter, unless it declares a deserializer of its own, reads
+each value as a `DateOperand`, a `\DateTimeImmutable` that knows whether it is a date, a
+time or a date-time, once a `ThroughPathResolver` resolves it. A database adapter binds it
+as the column's date type, and the reference in-memory handler compares a date by its day,
+a time by its time of day and a date-time as an instant, so both match the same rows. The
+parameter documents the field's `format`.
 
 ### Refinement helpers
 
