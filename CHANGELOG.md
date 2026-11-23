@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.23.0](https://github.com/haddowg/json-api/compare/v2.22.0...v2.23.0) (2026-11-23)
+
+
+### Features
+
+* give AbstractSerializer an empty getMeta() default ([#429](https://github.com/haddowg/json-api/issues/429)) ([965ffb2](https://github.com/haddowg/json-api/commit/965ffb22e1ce8f164342f9949fe1fa3c39645c7d))
+
+
+### Bug Fixes
+
+* close a range filter's parameter object to its bounds ([#430](https://github.com/haddowg/json-api/issues/430)) ([bde1b75](https://github.com/haddowg/json-api/commit/bde1b7532004892ea1a13bd70b419c49843c93a6))
+* refuse a range filter value that is not an object of its bounds ([#427](https://github.com/haddowg/json-api/issues/427)) ([5a274e2](https://github.com/haddowg/json-api/commit/5a274e2622a8a626cccfa9d3bee52f14c7d0a93c))
+
 ## [2.22.0](https://github.com/haddowg/json-api/compare/v2.21.1...v2.22.0) (2026-11-20)
 
 
