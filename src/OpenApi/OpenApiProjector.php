@@ -1921,7 +1921,7 @@ final class OpenApiProjector
                 ? Schema::ref('#/components/schemas/' . $base . 'CreateAttributes')
                 : Schema::ofType('object'))
             ->withProperty('relationships', $relationships = $this->writeRelationshipsProperty($type, creating: true, atomic: true) ?? Schema::ofType('object'))
-            ->withRequired(['type', ...$this->requiredCreateMembers($relationships)])
+            ->withRequired(['type', ...$this->requiredCreateMembers($type, $relationships)])
             ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `add` operation creates.');
         $resource = $this->withWrittenResourceMeta($resource, $type, OperationType::Create, atomic: true);
 
@@ -2209,10 +2209,11 @@ final class OpenApiProjector
             } else {
                 $property = Schema::ref('#/components/schemas/' . $relBase . (RelationFacts::hasPivot($relation) ? 'WriteRelationship' : 'Relationship'));
                 // The relationship object is shared with the read side, so a write's item
-                // bounds narrow it here rather than on the component.
-                $bounds = RelationFacts::withItemBounds(Schema::create(), $type, $relation, $creating);
-                if ($bounds->toArray() !== []) {
-                    $property = Schema::create()->withAllOf([$property, Schema::create()->withProperty('data', $bounds)]);
+                // bounds, or its refusal of a null to-one, narrow it here rather than on the
+                // component.
+                $narrowing = RelationFacts::writeLinkageNarrowing($type, $relation, $creating);
+                if ($narrowing->toArray() !== []) {
+                    $property = Schema::create()->withAllOf([$property, Schema::create()->withProperty('data', $narrowing)]);
                 }
             }
             // A write-only relation is never rendered back, which the response schemas
@@ -2265,7 +2266,7 @@ final class OpenApiProjector
         $schema = Schema::ofType('object')
             ->withProperty('data', $relation->isToMany()
                 ? RelationFacts::withItemBounds(Schema::ofType('array')->withItems($identifier), $type, $relation, $creating)
-                : $this->nullable($identifier))
+                : (RelationFacts::refusesNull($type, $relation, $creating) ? $identifier : $this->nullable($identifier)))
             ->withProperty('meta', Schema::ref('#/components/schemas/Meta'))
             ->withRequired(['data']);
 
@@ -2313,7 +2314,7 @@ final class OpenApiProjector
         if ($relationships !== null) {
             $resource = $resource->withProperty('relationships', $relationships);
         }
-        $resource = $resource->withRequired([...$required, ...$this->requiredCreateMembers($relationships)]);
+        $resource = $resource->withRequired([...$required, ...$this->requiredCreateMembers($type, $relationships)]);
         $resource = $this->withWrittenResourceMeta($resource, $type, OperationType::Create);
 
         return $this->writeDocumentEnvelope($resource);
@@ -2361,14 +2362,22 @@ final class OpenApiProjector
     }
 
     /**
-     * The members of a create's resource object that every create must send:
-     * `relationships` when a relation is required on create.
+     * The members of a create's resource object that every create must send: `attributes`
+     * when an attribute is required on create, and `relationships` when a relation is.
      *
      * @return list<string>
      */
-    private function requiredCreateMembers(?Schema $relationships): array
+    private function requiredCreateMembers(TypeMetadataInterface $type, ?Schema $relationships): array
     {
-        return ($relationships?->get('required') ?? []) !== [] ? ['relationships'] : [];
+        $members = [];
+        if ($type->hasFields() && $this->schemaProjector->requiresAttributesOnCreate($type->fields())) {
+            $members[] = 'attributes';
+        }
+        if (($relationships?->get('required') ?? []) !== []) {
+            $members[] = 'relationships';
+        }
+
+        return $members;
     }
 
     /**

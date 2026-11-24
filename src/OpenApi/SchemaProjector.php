@@ -636,6 +636,23 @@ final class SchemaProjector
     }
 
     /**
+     * Whether a create must send some attribute of `$fields`, and so its `attributes`
+     * member, as the create attributes' `required` list says.
+     *
+     * @param iterable<FieldInterface> $fields
+     */
+    public function requiresAttributesOnCreate(iterable $fields): bool
+    {
+        foreach ($fields as $field) {
+            if ($this->isAttribute($field) && $this->appearsInRepresentation($field, RepresentationContext::Create) && $this->isRequired($field, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The **read-representation attribute member names** for a type's fields: every
      * attribute that appears in a response. Excludes `id`, relations, write-only fields
      * and unconditionally-hidden fields; a *conditionally*-hidden field is **included**

@@ -526,7 +526,8 @@ final class OpenApiProjectorTest extends TestCase
         // `id` the runtime would `403` — mirroring the atomic `add` schema.
         $create = $this->arrAt($schemas, 'ArticlesCreateRequest', 'properties', 'data');
         self::assertFalse($this->at($schemas, 'ArticlesCreateRequest', 'properties', 'data', 'properties', 'id'));
-        self::assertSame(['type'], $this->listAt($create, 'required'));
+        // A create must send the attributes, since one of them is required on create.
+        self::assertSame(['type', 'attributes'], $this->listAt($create, 'required'));
         // the create body references the create-context attributes component, which
         // requires the declared-required field.
         self::assertSame('#/components/schemas/ArticlesCreateAttributes', $this->strAt($create, 'properties', 'attributes', '$ref'));
@@ -545,7 +546,7 @@ final class OpenApiProjectorTest extends TestCase
         // string `id`, but does not require it (the server assigns one when absent).
         $peopleCreate = $this->arrAt($schemas, 'PeopleCreateRequest', 'properties', 'data');
         self::assertSame('string', $this->strAt($peopleCreate, 'properties', 'id', 'type'));
-        self::assertSame(['type'], $this->listAt($peopleCreate, 'required'));
+        self::assertSame(['type', 'attributes'], $this->listAt($peopleCreate, 'required'));
     }
 
     #[Test]
@@ -620,7 +621,7 @@ final class OpenApiProjectorTest extends TestCase
 
         $create = $this->arrAt($schemas, 'DevicesCreateRequest', 'properties', 'data');
         self::assertSame('string', $this->strAt($create, 'properties', 'id', 'type'));
-        self::assertSame(['type', 'id'], $this->listAt($create, 'required'));
+        self::assertSame(['type', 'id', 'attributes'], $this->listAt($create, 'required'));
     }
 
     #[Test]
@@ -1051,7 +1052,7 @@ final class OpenApiProjectorTest extends TestCase
 
         // `articles` forbids a client id, so its **add** forbids `id` (a `false` schema,
         // server-assigned) and needs no id/lid choice; `lid` stays optional.
-        self::assertSame(['type'], $this->listAt($schemas, 'ArticlesAtomicAdd', 'required'));
+        self::assertSame(['type', 'attributes'], $this->listAt($schemas, 'ArticlesAtomicAdd', 'required'));
         self::assertFalse($this->at($schemas, 'ArticlesAtomicAdd', 'properties', 'id'));
         self::assertArrayHasKey('lid', $this->arrAt($schemas, 'ArticlesAtomicAdd', 'properties'));
         self::assertArrayNotHasKey('oneOf', $this->arrAt($schemas, 'ArticlesAtomicAdd'));

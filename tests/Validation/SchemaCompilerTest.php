@@ -265,6 +265,24 @@ final class SchemaCompilerTest extends TestCase
     }
 
     #[Test]
+    public function aCreateWithoutItsAttributesMemberIsRefused(): void
+    {
+        $compiled = $this->compiler()->compile($this->resource(), creating: true);
+        $body = [
+            'data' => [
+                'type' => 'authors',
+                'relationships' => [
+                    'team' => ['data' => ['type' => 'teams', 'id' => '1']],
+                ],
+            ],
+        ];
+
+        self::assertSame(['attributes', 'relationships'], $this->listAt($this->compileToArray(creating: true), 'properties', 'data', 'required'));
+        $this->expectException(RequestBodyInvalidJsonApi::class);
+        $this->validator()->validateRequest($body, [$compiled]);
+    }
+
+    #[Test]
     public function updateSchemaAllowsAPartialBody(): void
     {
         $compiled = $this->compiler()->compile($this->resource(), creating: false);

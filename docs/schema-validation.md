@@ -190,7 +190,7 @@ The context flag drives the **create vs update** split, mirroring the constraint
 contexts in [validation](constraints.md):
 
 - `creating: true` (POST) — `Required` / `requiredOnCreate` fields become
-  `required[]`.
+  `required[]`, and `data` then requires the `attributes` member too.
 - `creating: false` (PATCH) — no member is required, a `requiredOnUpdate` one
   included, and only the values actually supplied are constrained.
 
