@@ -32,6 +32,17 @@ final class HasOneBuilder extends BelongsToBuilder
         return (new static($name))->withRelatedTypes($type)->readThroughForeignKey($foreignKey);
     }
 
+    /**
+     * Starts a to-one relation to `$type` read through `$morphTo`, the related type's
+     * `MorphTo` pointing back at the parent. {@see MorphOne::make()} is the way to call it.
+     *
+     * @internal
+     */
+    public static function morphOne(string $name, string $type, string $morphTo): self
+    {
+        return (new self($name))->withRelatedTypes($type)->readThroughMorphTo($morphTo);
+    }
+
     public function build(): HasOne
     {
         return new HasOne($this->fieldState(), $this->relationState());

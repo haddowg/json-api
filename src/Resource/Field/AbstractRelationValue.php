@@ -278,6 +278,15 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
     }
 
     /**
+     * Whether the relation was declared with {@see MorphMany} or {@see MorphOne}, so its
+     * foreign key must name a `MorphTo` of the related type.
+     */
+    public function foreignKeyIsMorph(): bool
+    {
+        return $this->relationState->foreignKeyIsMorph;
+    }
+
+    /**
      * The members this relation's {@see AbstractRelationBuilder::identifierMeta()} resolver
      * declares it produces, in declaration order. Empty when it declares none.
      *

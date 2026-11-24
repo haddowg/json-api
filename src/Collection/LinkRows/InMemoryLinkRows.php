@@ -10,6 +10,7 @@ use haddowg\JsonApi\Collection\WindowExecutor;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\StoredIdForms;
 use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
 use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
@@ -152,7 +153,7 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface, LinkRowK
         $indexOf = static function (array $rows, IdentifiedMember $target) use ($fields): ?int {
             foreach ($rows as $index => $row) {
                 $linked = $fields->member($row);
-                if ($linked !== null && $linked->type === $target->type && (string) $linked->id === (string) $target->id) {
+                if ($linked !== null && $linked->type === $target->type && StoredIdForms::comparable($linked->id) === StoredIdForms::comparable($target->id)) {
                     return $index;
                 }
             }

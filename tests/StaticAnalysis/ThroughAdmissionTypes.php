@@ -12,8 +12,9 @@ use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
  * Never executed. phpstan-hooks.neon analyses it with PHPStan's default settings, as a
  * consuming project would, so the admission closure an adapter hands the reference
  * handlers keeps accepting the shapes an adapter writes: the walked path and the rows,
- * with or without the relation a `->through()` hop walks, and the morph admission closure the
- * polymorphic relation, the requested type and its targets' keys.
+ * with or without the relation a `->through()` hop walks, the morph admission closure the
+ * polymorphic relation, the requested type and its targets' keys, and the relation reader
+ * the row, the walked path and the relation, returning rows or null.
  */
 final class ThroughAdmissionTypes
 {
@@ -22,7 +23,8 @@ final class ThroughAdmissionTypes
         return $handler
             ->withRowAdmission(static fn(string $path, array $rows): array => $path === 'hidden' ? [] : $rows)
             ->withRowAdmission(static fn(string $path, array $rows, ?RelationInterface $relation = null): array => $relation?->name() === 'hidden' ? [] : $rows)
-            ->withMorphAdmission(static fn(RelationInterface $relation, string $type, array $keys): array => $type === 'hidden' ? [] : $keys);
+            ->withMorphAdmission(static fn(RelationInterface $relation, string $type, array $keys): array => $type === 'hidden' ? [] : $keys)
+            ->withRelationReader(static fn(mixed $row, string $path, ?RelationInterface $relation): ?array => $path === 'notes' ? [] : null);
     }
 
     public static function sorts(ArraySortHandler $handler): ArraySortHandler

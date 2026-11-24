@@ -36,6 +36,7 @@ final readonly class RelationState
      * @param string|null                                                                                               $positionField        the stored integer field holding each member's position
      * @param list<string>                                                                                              $droppedFilterDefaults the filter keys whose related-type default the relation drops
      * @param string|null                                                                                               $foreignKey           the related type's field or to-one relation holding the parent's id
+     * @param bool                                                                                                      $foreignKeyIsMorph    whether the foreign key must name a MorphTo, as MorphMany and MorphOne declare it
      */
     public function __construct(
         public array $relatedTypes = [],
@@ -72,5 +73,6 @@ final readonly class RelationState
         public ?string $foreignKey = null,
         public ?AdditionalProperties $identifierMetaAdditional = null,
         public ?AdditionalProperties $pivotAdditional = null,
+        public bool $foreignKeyIsMorph = false,
     ) {}
 }

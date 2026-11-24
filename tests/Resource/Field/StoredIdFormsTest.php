@@ -42,7 +42,17 @@ final class StoredIdFormsTest extends TestCase
         self::assertSame($text, StoredIdForms::wireId($encoder, $bytes));
         self::assertSame($text, StoredIdForms::wireId($encoder, $text));
         self::assertSame($text, StoredIdForms::wireId($encoder, \strtoupper($text)));
-        self::assertSame([$bytes, $text], StoredIdForms::forms($encoder, [$bytes]));
+        // A text column may keep the uuid in either case.
+        self::assertSame([$bytes, $text, \strtoupper($text)], StoredIdForms::forms($encoder, [$bytes]));
+    }
+
+    #[Test]
+    public function aUuidComparesWhateverItsCase(): void
+    {
+        self::assertSame('2d8c3e4a-8cab-4f77-9c8a-3b4f5e6d7c81', StoredIdForms::comparable('2D8C3E4A-8CAB-4F77-9C8A-3B4F5E6D7C81'));
+        self::assertSame('Mixed-Case-Key', StoredIdForms::comparable('Mixed-Case-Key'));
+        self::assertSame('7', StoredIdForms::comparable(7));
+        self::assertSame(['2D8C3E4A-8CAB-4F77-9C8A-3B4F5E6D7C81', '2d8c3e4a-8cab-4f77-9c8a-3b4f5e6d7c81'], StoredIdForms::forms(null, ['2D8C3E4A-8CAB-4F77-9C8A-3B4F5E6D7C81']));
     }
 
     #[Test]

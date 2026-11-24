@@ -37,6 +37,10 @@ allowed related type); the last two are polymorphic (several).
 | `MorphTo` | to-one | polymorphic FK | `make('item', ['tracks', 'albums', 'artists'])` |
 | `MorphToMany` | to-many | polymorphic collection | `make('items', ['tracks', 'albums', 'artists'])` |
 
+`MorphMany` and `MorphOne` aren't classes of their own: they build a `HasMany` and a
+`HasOne` read through a `MorphTo` of the related type, see
+[a foreign key through a polymorphic relation](#a-foreign-key-through-a-polymorphic-relation).
+
 The related resource type is a **mandatory** second argument to `make()` — a
 single type for a monomorphic relation, a non-empty list for a polymorphic one.
 A relationship cannot be declared without it.
@@ -164,33 +168,6 @@ A data layer resolves the name with `ForeignKey::of($relation, $resolver)`, whic
 returns the member's storage `column` and whether it is a to-one relation, and reads
 each parent's key with `ForeignKey::parentKey($parentSerializer, $parent)`.
 
-### A foreign key through a polymorphic relation
-
-When the related rows point back at their parent through a `MorphTo` that keeps its target
-in two fields, name the `MorphTo` as the foreign key:
-
-```php
-// NoteResource
-MorphTo::make('owner', ['posts', 'videos'])
-    ->identifiedByColumns(type: 'ownerType', id: 'ownerId'),
-
-// PostResource
-HasMany::make('notes', 'notes', 'owner'),
-```
-
-A post's notes are then the notes whose `ownerType` holds a stored value naming `posts`
-and whose `ownerId` holds one of the posts' keys, on every read the foreign key decides.
-A write sets both fields on the rows that join, the type field to
-`MorphColumns::storedValueFor()` the parent's type, and clears both on the rows that
-leave. A data layer gets the two fields from `ForeignKey::morphColumns()`, which is `null`
-for any other foreign key, and the stored values naming the parent's type from
-`MorphColumns::storedValues()`.
-
-Naming the id field itself, `HasMany::make('notes', 'notes', 'ownerId')`, is refused at
-warm-up, as is naming the type field: the id field holds the ids of posts and videos
-alike, so the relation would read a video's notes as a post's whenever their ids match.
-Name the `MorphTo` instead.
-
 A relationship write of such a relation is a write of the related rows, never of the
 parent. A replace sets the foreign key on the rows the linkage names and clears it on the
 members it leaves out, an add sets it, and a remove clears it on the named rows that are
@@ -202,6 +179,41 @@ foreign key its storage requires with the `403` of the mutation that drops the m
 Overriding `HasMany::make()` or `HasOne::make()` in a subclass now needs the third
 `?string $foreignKey = null` parameter, since PHP checks a static method's signature
 against its parent's.
+
+### A foreign key through a polymorphic relation
+
+When the related rows point back at their parent through a `MorphTo`, declare the inverse
+with `MorphMany` or `MorphOne`, naming that `MorphTo`:
+
+```php
+// NoteResource
+MorphTo::make('owner', ['posts', 'videos'])
+    ->identifiedByColumns(type: 'ownerType', id: 'ownerId'),
+
+// PostResource
+MorphMany::make('notes', 'notes', 'owner'),
+MorphOne::make('latestNote', 'notes', 'owner'),
+```
+
+`MorphMany::make()` builds the same `HasMany` as `HasMany::make('notes', 'notes',
+'owner')`, and `MorphOne::make()` the same `HasOne`; the only difference is that warm-up
+refuses them unless the member they name is a `MorphTo` of the related type.
+`HasMany::make()` naming a `MorphTo` reads the same way.
+
+A post's notes are then the notes whose `ownerType` holds a stored value naming `posts`
+and whose `ownerId` holds one of the posts' keys, on every read the foreign key decides.
+A write sets both fields on the rows that join, the type field to
+`MorphColumns::storedValueFor()` the parent's type, and clears both on the rows that
+leave. A data layer gets the two fields from `ForeignKey::morphColumns()`, which is `null`
+for any other foreign key, and the stored values naming the parent's type from
+`MorphColumns::storedValues()`. Core checks only that the member is a `MorphTo`; each data
+layer checks that it can compare it, such as a `MorphTo` declared with
+`identifiedByColumns()` on Doctrine or a native `morphTo` on Eloquent.
+
+Naming the id field itself, `HasMany::make('notes', 'notes', 'ownerId')`, is refused at
+warm-up, as is naming the type field: the id field holds the ids of posts and videos
+alike, so the relation would read a video's notes as a post's whenever their ids match.
+Name the `MorphTo` instead.
 
 ## BelongsToMany — a pivot-backed to-many
 
@@ -865,6 +877,17 @@ witness covers writes as well as reads. `$newRow` makes a new row, a `through()`
 by default. `$storeRows` receives the parent and the rows as a list and returns the
 parent, so a host keeps its own collection type, such as a Doctrine `Collection`; by
 default the list is written to the relation's field.
+
+## Laravel's polymorphic relations
+
+Each of Eloquent's polymorphic relations has a counterpart here, apart from one:
+
+| Eloquent | Here |
+| --- | --- |
+| `morphTo` | `MorphTo`, declared with `identifiedByColumns()` to read its type and id columns |
+| `morphMany`, `morphOne` | `MorphMany`, `MorphOne`, naming the related type's `MorphTo` |
+| `morphedByMany` | `MorphToMany` with `identifiedByRows()`, the link table's owner field naming one owning type |
+| `morphToMany` | not yet: the owner side of its link table is polymorphic, and link rows have no owner type |
 
 ## Backing and advisory metadata
 

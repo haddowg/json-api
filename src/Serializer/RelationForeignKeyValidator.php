@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Serializer;
 
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\AbstractRelationValue;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\ForeignKey;
 use haddowg\JsonApi\Resource\Field\Id;
@@ -101,6 +102,7 @@ final class RelationForeignKeyValidator
         $problem = match (true) {
             $member === null => 'it declares no such field or relation',
             $member instanceof Id => 'it is the related type\'s id',
+            $relation instanceof AbstractRelationValue && $relation->foreignKeyIsMorph() && !$member instanceof MorphTo => 'it is not a MorphTo, which a MorphMany or MorphOne must name',
             $member->relatedVia() !== null => 'it is flattened from another relation with on(), so the related row doesn\'t store it',
             $member instanceof RelationInterface && $member->isToMany() => 'it is a to-many relation; a foreign key is a field or a to-one relation',
             $member instanceof RelationInterface && !\in_array($type, $member->relatedTypes(), true) => \sprintf(
