@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.26.0](https://github.com/haddowg/json-api/compare/v2.25.1...v2.26.0) (2026-11-24)
+
+
+### Features
+
+* add MorphMany and MorphOne for the inverse of a polymorphic relation ([43ae7f7](https://github.com/haddowg/json-api/commit/43ae7f7e4ffaf2113941da4ebf283ff1d5b75a95))
+* let the in-memory filter and sort handlers read a relation through a foreign key ([43ae7f7](https://github.com/haddowg/json-api/commit/43ae7f7e4ffaf2113941da4ebf283ff1d5b75a95))
+
+
+### Bug Fixes
+
+* read a polymorphic foreign key through both its type and id fields ([43ae7f7](https://github.com/haddowg/json-api/commit/43ae7f7e4ffaf2113941da4ebf283ff1d5b75a95))
+* refuse at warm-up a foreign key naming the bare id or type field of a polymorphic relation, which existing applications must change to name the MorphTo ([43ae7f7](https://github.com/haddowg/json-api/commit/43ae7f7e4ffaf2113941da4ebf283ff1d5b75a95))
+* render a uuid-shaped stored polymorphic id in lower case and match it in either case ([43ae7f7](https://github.com/haddowg/json-api/commit/43ae7f7e4ffaf2113941da4ebf283ff1d5b75a95))
+
 ## [2.25.1](https://github.com/haddowg/json-api/compare/v2.25.0...v2.25.1) (2026-11-24)
 
 
