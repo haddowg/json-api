@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.25.1](https://github.com/haddowg/json-api/compare/v2.25.0...v2.25.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* accept a stored polymorphic id in its wire form as well as its storage key ([#438](https://github.com/haddowg/json-api/issues/438)) ([1b27bc4](https://github.com/haddowg/json-api/commit/1b27bc4c40302a3ca529796aba07528b4a74ced7))
+* let only an octet-stream location vary its type ([#440](https://github.com/haddowg/json-api/issues/440)) ([7b763a7](https://github.com/haddowg/json-api/commit/7b763a76bfc615c4d2666ad23d0c8b718fae88fa))
+
 ## [2.25.0](https://github.com/haddowg/json-api/compare/v2.24.1...v2.25.0) (2026-11-24)
 
 
