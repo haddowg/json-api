@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.25.0](https://github.com/haddowg/json-api/compare/v2.24.1...v2.25.0) (2026-11-24)
+
+
+### Features
+
+* list the other gates an operation enforces in the catalogue ([#436](https://github.com/haddowg/json-api/issues/436)) ([3ee6ac3](https://github.com/haddowg/json-api/commit/3ee6ac3a91349946a643c653b15d70df2e50ddf6))
+
 ## [2.24.1](https://github.com/haddowg/json-api/compare/v2.24.0...v2.24.1) (2026-11-24)
 
 
