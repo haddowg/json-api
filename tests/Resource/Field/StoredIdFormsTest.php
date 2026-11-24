@@ -47,6 +47,15 @@ final class StoredIdFormsTest extends TestCase
     }
 
     #[Test]
+    public function withNoEncoderAUuidShapedIdIsItsLowerCaseForm(): void
+    {
+        self::assertSame('2d8c3e4a-8cab-4f77-9c8a-3b4f5e6d7c81', StoredIdForms::wireId(null, '2D8C3E4A-8CAB-4F77-9C8A-3B4F5E6D7C81'));
+        self::assertSame('ABC-9', StoredIdForms::wireId(null, 'ABC-9'));
+        self::assertSame('{2D8C3E4A-8CAB-4F77-9C8A-3B4F5E6D7C81}', StoredIdForms::wireId(null, '{2D8C3E4A-8CAB-4F77-9C8A-3B4F5E6D7C81}'));
+        self::assertSame('12', StoredIdForms::wireId(null, 12));
+    }
+
+    #[Test]
     public function aUuidComparesWhateverItsCase(): void
     {
         self::assertSame('2d8c3e4a-8cab-4f77-9c8a-3b4f5e6d7c81', StoredIdForms::comparable('2D8C3E4A-8CAB-4F77-9C8A-3B4F5E6D7C81'));

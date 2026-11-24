@@ -15,13 +15,15 @@ final class StoredIdForms
     /**
      * The wire id a stored reference in either form names. A value the encoder decodes
      * and encodes back to the same id, ignoring case, is a wire id already, and anything
-     * else is a storage key, encoded. The stored case is kept; compare the result through
-     * {@see comparable()}.
+     * else is a storage key, encoded. With no encoder the stored id is the wire id, except
+     * that a uuid-shaped one, in the canonical 8-4-4-4-12 hex form, is lower-cased, as a uuid
+     * renders and as RFC 9562 writes it, so a linkage read from a column holding it in
+     * capitals still names the target the include renders. Anything else passes through.
      */
     public static function wireId(?IdEncoderInterface $encoder, string|int $stored): string
     {
         if ($encoder === null) {
-            return (string) $stored;
+            return self::comparable($stored);
         }
 
         $decoded = $encoder->decode((string) $stored);

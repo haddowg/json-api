@@ -61,6 +61,16 @@ final class MorphToIdentifiedByColumnsTest extends TestCase
     }
 
     #[Test]
+    public function aUuidStoredInCapitalsRendersItsLowerCaseLinkage(): void
+    {
+        $relation = MorphTo::make('subject', ['rfps'])->identifiedByColumns('subjectType', 'subjectId')->build();
+        $pair = $relation->storedIdentifier(self::item('rfps', '0193D1C2-7A4E-7C55-9A8E-5F0C3B2D1E00'), self::request());
+        self::assertNotNull($pair);
+
+        self::assertSame('0193d1c2-7a4e-7c55-9a8e-5f0c3b2d1e00', \haddowg\JsonApi\Resource\Field\StoredIdForms::wireId(null, $pair[1]));
+    }
+
+    #[Test]
     public function aWriteStoresTheFirstValueNamingAType(): void
     {
         $mapped = new MorphColumns('subjectType', 'subjectId', ['rfps', 'campaigns'], ['App\\Rfp' => 'rfps', 'App\\Campaign' => 'campaigns']);

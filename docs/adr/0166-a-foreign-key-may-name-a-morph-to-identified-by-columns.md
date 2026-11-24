@@ -13,3 +13,8 @@ with such a declaration today, which is the point: those reads were already wron
 through the code it already has, and warm-up refuses them unless the member they name is a
 `MorphTo`. Core checks only that; whether a data layer can compare it stays the data
 layer's check.
+
+A stored polymorphic id with no id encoder renders as stored, except that a uuid-shaped one is
+lower-cased, so a linkage read from a column that keeps it in capitals names the target the
+include renders. A target whose own primary key is stored in capitals still renders that way
+through its Id field; that behaviour is unchanged.
