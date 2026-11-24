@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Response;
 
 use haddowg\JsonApi\Negotiation\AcceptNegotiator;
+use haddowg\JsonApi\OpenApi\Metadata\SeeOther;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\ProvidesOutputTimezoneInterface;
 use haddowg\JsonApi\Response\Internal\RenderedDocument;
@@ -42,7 +43,8 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  * ```
  *
  * `location.type` is {@see withType()} or the declared media type, and `location.meta`
- * appears only with an expiry; the
+ * appears only with an expiry. To vary the type per URL, the action declares
+ * `application/octet-stream`; any other declaration fixes it. The
  * top-level `meta.expiresAt` is always there, `null` for a URL that does not expire.
  * Any other request gets the `303`. Both shapes carry `Cache-Control: no-store` and
  * `Vary: Accept` unless the handler set its own.
@@ -54,6 +56,8 @@ final class SeeOtherResponse extends AbstractResponse
     private ?string $type = null;
 
     private bool $fromAction = false;
+
+    private ?SeeOther $declared = null;
 
     private function __construct(private readonly string $location) {}
 
@@ -81,14 +85,21 @@ final class SeeOtherResponse extends AbstractResponse
     }
 
     /**
-     * The media type the URL serves, such as `text/csv`, rendered as the location link's
-     * `type`. It wins over the media type the action's {@see \haddowg\JsonApi\OpenApi\Metadata\SeeOther}
-     * declares.
+     * The media type the URL serves, such as `application/pdf`, rendered as the location
+     * link's `type` in place of the one the action's
+     * {@see \haddowg\JsonApi\OpenApi\Metadata\SeeOther} declares. An action whose type
+     * varies declares `application/octet-stream` and may send any type here. Any other
+     * declaration admits only its own type, with whatever parameters, such as
+     * `text/csv; charset=utf-8`, and dispatching a different type throws a
+     * `\LogicException`, since the published OpenAPI document allows only the declared one.
      */
     public function withType(string $mediaType): self
     {
         $self = clone $this;
         $self->type = $mediaType;
+        if ($self->declared !== null && !$self->declared->admits($mediaType)) {
+            throw self::undeclaredType($self->declared, $mediaType);
+        }
 
         return $self;
     }
@@ -101,14 +112,22 @@ final class SeeOtherResponse extends AbstractResponse
     /**
      * Marks this response as the result of an action that answers with a URL, so it
      * negotiates between the location document and the `303` and is never cached.
-     * `$mediaType` is the one the action declares, used when the handler set none.
+     * The declared media type types the location when the handler set none.
      *
      * @internal called by {@see \haddowg\JsonApi\Server\Server::dispatch()}
+     *
+     * @throws \LogicException when the handler's {@see withType()} is a type the declaration does not admit
      */
-    public function fromAction(string $mediaType): self
+    public function fromAction(SeeOther $declared): self
     {
+        $mediaType = $declared->mediaType ?? throw new \LogicException('Only a SeeOther declaring a media type answers with a URL.');
+        if ($this->type !== null && !$declared->admits($this->type)) {
+            throw self::undeclaredType($declared, $this->type);
+        }
+
         $self = clone $this;
         $self->fromAction = true;
+        $self->declared = $declared;
         $self->type ??= $mediaType;
         foreach (['Cache-Control' => 'no-store', 'Vary' => 'Accept'] as $name => $value) {
             if (!$self->hasHeader($name)) {
@@ -193,6 +212,15 @@ final class SeeOtherResponse extends AbstractResponse
         }
 
         return $value->format(\DateTimeInterface::ATOM);
+    }
+
+    private static function undeclaredType(SeeOther $declared, string $mediaType): \LogicException
+    {
+        return new \LogicException(\sprintf(
+            'The action declares that its URL serves "%1$s", so its location cannot be typed "%2$s": the published OpenAPI document allows only "%1$s" there. An action whose type varies declares SeeOther(mediaType: \'application/octet-stream\').',
+            $declared->mediaType,
+            $mediaType,
+        ));
     }
 
     private function hasHeader(string $name): bool

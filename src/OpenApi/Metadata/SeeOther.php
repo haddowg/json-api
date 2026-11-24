@@ -12,12 +12,17 @@ namespace haddowg\JsonApi\OpenApi\Metadata;
  * {@see \haddowg\JsonApi\Resource\ResolvesCompletionRedirect}.
  *
  * On a custom action it is the plain `303` too, unless it names a `mediaType`: what the
- * URL serves, such as `text/csv`, or `application/octet-stream` when that is not known.
- * Naming it opts the action in to answering with a URL, such as a short-lived download
- * link. The action then answers a request that prefers JSON:API with a `200` document
- * carrying the URL as its `links.location`, typed with that media type, and any other
- * request with the `303` (see {@see \haddowg\JsonApi\Response\SeeOtherResponse}).
- * Both are projected.
+ * URL serves, such as `text/csv`, or `application/octet-stream` when the type varies or
+ * is not known in advance. Naming it opts the action in to answering with a URL, such as
+ * a short-lived download link. The action then answers a request that prefers JSON:API
+ * with a `200` document carrying the URL as its `links.location`, typed with that media
+ * type, and any other request with the `303` (see
+ * {@see \haddowg\JsonApi\Response\SeeOtherResponse}). Both are projected.
+ *
+ * Any media type but `application/octet-stream` is projected as the one `location.type`
+ * the action sends. A handler may add or change its parameters, but not send another
+ * type. `application/octet-stream` is projected as any string, so a handler names the
+ * concrete type of each URL with {@see \haddowg\JsonApi\Response\SeeOtherResponse::withType()}.
  *
  * `description` replaces the generated description of the projected responses.
  */
@@ -31,10 +36,28 @@ final readonly class SeeOther implements FetchOneResponse, ActionResponse
             return;
         }
 
-        $essence = \strtolower(\trim(\explode(';', $mediaType, 2)[0]));
+        $essence = self::essence($mediaType);
         if (\preg_match('#^[a-z0-9!\#$&^_.+-]+/[a-z0-9!\#$&^_.+-]+$#', $essence) !== 1 || \str_contains($essence, '*')) {
             throw new \InvalidArgumentException(\sprintf('A See Other response needs a concrete media type such as "text/csv"; got "%s".', $mediaType));
         }
+    }
+
+    /**
+     * Whether the declared media type is `application/octet-stream`, so the location's
+     * `type` may be any media type the handler sets.
+     */
+    public function typeVaries(): bool
+    {
+        return $this->mediaType !== null && self::essence($this->mediaType) === 'application/octet-stream';
+    }
+
+    /**
+     * Whether a handler may send `$mediaType` as the location's `type`: any type when the
+     * declared one varies, otherwise the declared type with any parameters.
+     */
+    public function admits(string $mediaType): bool
+    {
+        return $this->mediaType === null || $this->typeVaries() || self::essence($mediaType) === self::essence($this->mediaType);
     }
 
     public function status(): int
@@ -45,5 +68,13 @@ final readonly class SeeOther implements FetchOneResponse, ActionResponse
     public function jobType(): ?string
     {
         return null;
+    }
+
+    /**
+     * The media type without its parameters, lower-cased.
+     */
+    private static function essence(string $mediaType): string
+    {
+        return \strtolower(\trim(\explode(';', $mediaType, 2)[0]));
     }
 }

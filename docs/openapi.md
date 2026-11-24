@@ -1450,8 +1450,8 @@ is the handler's choice, with `withHeader('Location', …)`.
 ### Actions that answer with a URL
 
 An action that hands out a URL, such as a short-lived download link, declares `SeeOther`
-with a `mediaType`, the media type the URL serves. A download whose type isn't known
-declares `application/octet-stream`. `description` replaces the generated wording. The
+with a `mediaType`, the media type the URL serves. A download whose type varies or isn't
+known in advance declares `application/octet-stream`. `description` replaces the generated wording. The
 `mediaType` is the opt-in: a bare `new SeeOther()`, or one with only a description, stays
 the plain `303` it always was, at runtime and in the projection.
 
@@ -1485,7 +1485,12 @@ because a browser cannot read a `303`'s `Location` from `fetch()`, which with
 ```
 
 `self` is the action's own URL. `location.type` is the declared media type unless the
-handler sets its own with `withType()`, and `location.meta` appears when the URL expires. JSON:API needs a
+handler sets its own with `withType()`, and `location.meta` appears when the URL expires.
+An action declaring `application/octet-stream` may set any type, such as `application/pdf`
+for one file and `image/png` for the next. Any other declaration fixes the type: the handler
+may add or change parameters, such as `text/csv; charset=utf-8`, but `Server::dispatch()`
+throws a `LogicException` naming the declared type when the handler sends a different one,
+because the published document allows only that type. JSON:API needs a
 `meta`, `data` or `errors` member at the top level, so the top-level `meta.expiresAt` is
 always there, `null` for a URL that does not expire. The expiry is written in the
 server's output timezone, as a `DateTime` attribute is. Both shapes send
@@ -1495,8 +1500,10 @@ JSON:API documents.
 The projection documents both responses. The `200` references a shared
 `LocationDocument` component, whose `links.location` is a `LocationLink` with `href`,
 `type` and `meta.expiresAt`, narrowed in an `allOf` so `type` is a `const` of the declared
-media type. The `303` documents `Location` as a `uri-reference`, and both
-document `Cache-Control`. When the action also declares a `200` JSON:API body, such as an
+media type. For `application/octet-stream` the narrowing leaves `type` any string, with
+the declared type as its example, and the document declares the `VARYING_LOCATION_TYPE`
+contract tier in its [`x-generator`](#the-generator-contract-x-generator) stamp. The
+`303` documents `Location` as a `uri-reference`, and both document `Cache-Control`. When the action also declares a `200` JSON:API body, such as an
 `ActionResource`, the `200` is a `oneOf` of that document and the location document. The
 operation's example is the location document with a fixed example URL and expiry, typed
 with the declared media type.

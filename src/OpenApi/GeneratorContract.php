@@ -49,7 +49,7 @@ namespace haddowg\JsonApi\OpenApi;
  * **A bump can be scoped to a structure only some documents use.** {@see CONTRACT} is the
  * highest contract the projector emits, and a document using none of the scoped
  * structures carries {@see BASELINE} instead, so a generator that cannot read a structure
- * is warned only by the documents that contain it. There are twenty-nine scoped
+ * is warned only by the documents that contain it. There are thirty scoped
  * structures today: an action's non-JSON:API response bodies ({@see RAW_CONTENT}), the
  * request bodies it declares it accepts ({@see ACCEPTED_BODIES}), the worked example
  * on an operation's request and responses ({@see EXAMPLES}), the named links a
@@ -58,7 +58,8 @@ namespace haddowg\JsonApi\OpenApi;
  * ({@see ACTION_SAFETY}), its own vendor extensions ({@see ACTION_EXTENSIONS}), the
  * scopes an operation needs ({@see SCOPES}), a polymorphic relation with a single
  * related type ({@see SINGLE_TARGET_POLYMORPHISM}), an action answering with a URL
- * ({@see ACTION_LOCATION}), the `type`-discriminated unions of a polymorphic relation
+ * ({@see ACTION_LOCATION}) and one whose media type varies ({@see VARYING_LOCATION_TYPE}),
+ * the `type`-discriminated unions of a polymorphic relation
  * or a typed `included` ({@see DISCRIMINATED_UNIONS}), a `sort` parameter accepting
  * a family of keys by prefix ({@see SORT_FAMILIES}), a list attribute whose items are
  * objects or a discriminated union ({@see STRUCTURED_LIST_ELEMENTS}), a deprecation
@@ -90,7 +91,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 46;
+    public const CONTRACT = 47;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -224,6 +225,15 @@ final class GeneratorContract
      * document carries it only when an action declares one.
      */
     public const ACTION_LOCATION = 17;
+
+    /**
+     * The contract that stopped narrowing an action's location `type` when the action
+     * declares {@see Metadata\SeeOther} with `application/octet-stream`: the type varies,
+     * so the location document's `type` is any string with the declared type as its
+     * example rather than a `const`. A document carries it only when an action declares
+     * one.
+     */
+    public const VARYING_LOCATION_TYPE = 47;
 
     /**
      * The contract that made the projection's resource unions discriminated: a
@@ -412,6 +422,7 @@ final class GeneratorContract
         bool $scopes = false,
         bool $singleTargetPolymorphism = false,
         bool $actionLocations = false,
+        bool $varyingLocationTypes = false,
         bool $discriminatedUnions = false,
         bool $sortFamilies = false,
         bool $structuredListElements = false,
@@ -444,6 +455,7 @@ final class GeneratorContract
             $scopes ? self::SCOPES : self::BASELINE,
             $singleTargetPolymorphism ? self::SINGLE_TARGET_POLYMORPHISM : self::BASELINE,
             $actionLocations ? self::ACTION_LOCATION : self::BASELINE,
+            $varyingLocationTypes ? self::VARYING_LOCATION_TYPE : self::BASELINE,
             $discriminatedUnions ? self::DISCRIMINATED_UNIONS : self::BASELINE,
             $sortFamilies ? self::SORT_FAMILIES : self::BASELINE,
             $structuredListElements ? self::STRUCTURED_LIST_ELEMENTS : self::BASELINE,

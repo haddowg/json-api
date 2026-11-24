@@ -698,19 +698,21 @@ final class OperationProjector
 
     /**
      * An action's `200` location document, answering a request that prefers JSON:API.
-     * The schema is the shared `LocationDocument`, narrowed to the declared media type's
-     * `type`. `$declared200` is a `200` JSON:API body the action also declares, which the
-     * location document joins in a `oneOf`.
+     * The schema is the shared `LocationDocument`, its `type` narrowed to the declared
+     * media type, or only exemplified by it when the type varies
+     * ({@see SeeOther::typeVaries()}). `$declared200` is a `200` JSON:API body the action
+     * also declares, which the location document joins in a `oneOf`.
      */
     private function actionLocationResponse(SeeOther $declared, string $mediaType, ?Response $declared200): Response
     {
+        $type = Schema::ofType('string');
         $schema = Schema::create()->withAllOf([
             Schema::ref(ComponentNaming::schemaRef('LocationDocument')),
             Schema::ofType('object')->withProperty(
                 'links',
                 Schema::ofType('object')->withProperty(
                     'location',
-                    Schema::ofType('object')->withProperty('type', Schema::ofType('string')->withConst($mediaType)),
+                    Schema::ofType('object')->withProperty('type', $declared->typeVaries() ? $type->withExample($mediaType) : $type->withConst($mediaType)),
                 ),
             ),
         ]);

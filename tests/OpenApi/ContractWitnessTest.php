@@ -77,7 +77,7 @@ final class ContractWitnessTest extends TestCase
     #[Test]
     public function theContractIsTheHighestAnyDocumentCarries(): void
     {
-        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true, discriminatedUnions: true, sortFamilies: true, structuredListElements: true, deprecation: true, actionFilters: true, actionCreated: true, relatedOnly: true, filterFamilies: true, listFilters: true, identifierMeta: true, openObjects: true, identifiedPivots: true, fixedMembership: true, unions: true, namedComponents: true, singletons: true, typedDocumentMeta: true, nestedFieldsets: true, typedRequestMeta: true));
+        self::assertSame(['contract' => GeneratorContract::CONTRACT], GeneratorContract::toArray(rawContent: true, acceptedBodies: true, examples: true, declaredLinks: true, actionMethodIds: true, actionSafety: true, actionExtensions: true, scopes: true, singleTargetPolymorphism: true, actionLocations: true, varyingLocationTypes: true, discriminatedUnions: true, sortFamilies: true, structuredListElements: true, deprecation: true, actionFilters: true, actionCreated: true, relatedOnly: true, filterFamilies: true, listFilters: true, identifierMeta: true, openObjects: true, identifiedPivots: true, fixedMembership: true, unions: true, namedComponents: true, singletons: true, typedDocumentMeta: true, nestedFieldsets: true, typedRequestMeta: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::NESTED_FIELDSETS)], GeneratorContract::toArray(nestedFieldsets: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::TYPED_DOCUMENT_META)], GeneratorContract::toArray(typedDocumentMeta: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SINGLETONS)], GeneratorContract::toArray(singletons: true));
@@ -97,6 +97,7 @@ final class ContractWitnessTest extends TestCase
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SORT_FAMILIES)], GeneratorContract::toArray(sortFamilies: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DISCRIMINATED_UNIONS)], GeneratorContract::toArray(discriminatedUnions: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::ACTION_LOCATION)], GeneratorContract::toArray(actionLocations: true));
+        self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::VARYING_LOCATION_TYPE)], GeneratorContract::toArray(varyingLocationTypes: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SINGLE_TARGET_POLYMORPHISM)], GeneratorContract::toArray(singleTargetPolymorphism: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::SCOPES)], GeneratorContract::toArray(scopes: true));
         self::assertSame(['contract' => \max(GeneratorContract::BASELINE, GeneratorContract::DECLARED_LINKS)], GeneratorContract::toArray(declaredLinks: true));

@@ -290,7 +290,7 @@ final class OpenApiProjector
         $scopes = OperationScopes::of($server);
 
         $document = new OpenApi(
-            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes, TypedDocumentMeta::documents($server) !== [], self::acceptsSelectedKeys($paths), self::declaresTypedRequestMeta($server)),
+            info: $this->info($server, $examples?->emitted() ?? false, $scopes !== null, $actionLocations, self::declaresVaryingLocationType($server), self::acceptsSortFamilies($paths), self::filterStructures($paths), $namedShapes, TypedDocumentMeta::documents($server) !== [], self::acceptsSelectedKeys($paths), self::declaresTypedRequestMeta($server)),
             components: $components,
             servers: $server->servers(),
             security: $server->defaultSecurity(),
@@ -537,7 +537,7 @@ final class OpenApiProjector
      *
      * @param array{filterFamilies: bool, listFilters: bool} $filters
      */
-    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta, bool $nestedFieldsets, bool $typedRequestMeta): Info
+    private function info(ServerMetadataInterface $server, bool $examples, bool $scopes, bool $actionLocations, bool $varyingLocationTypes, bool $sortFamilies, array $filters, bool $namedComponents, bool $typedDocumentMeta, bool $nestedFieldsets, bool $typedRequestMeta): Info
     {
         $actions = $this->actionStructures($server);
 
@@ -558,6 +558,7 @@ final class OpenApiProjector
             scopes: $scopes,
             singleTargetPolymorphism: self::hasSingleTargetPolymorphism($server),
             actionLocations: $actionLocations,
+            varyingLocationTypes: $varyingLocationTypes,
             discriminatedUnions: self::hasDiscriminatedUnion($server),
             sortFamilies: $sortFamilies,
             structuredListElements: self::hasStructuredList($server),
@@ -1179,6 +1180,24 @@ final class OpenApiProjector
         foreach ($server->types() as $type) {
             foreach ($type->actions() as $action) {
                 if (ActionResponses::location($action->responds()) !== null) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any action declares a {@see SeeOther} with `application/octet-stream`, so
+     * its location document's `type` is any string
+     * ({@see GeneratorContract::VARYING_LOCATION_TYPE}).
+     */
+    private static function declaresVaryingLocationType(ServerMetadataInterface $server): bool
+    {
+        foreach ($server->types() as $type) {
+            foreach ($type->actions() as $action) {
+                if (ActionResponses::location($action->responds())?->typeVaries() === true) {
                     return true;
                 }
             }

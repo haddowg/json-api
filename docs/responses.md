@@ -319,8 +319,12 @@ return SeeOtherResponse::to($storage->presign($file), expiresAt: new \DateTimeIm
 
 `expiresAt` becomes `location.meta.expiresAt` and the top-level `meta.expiresAt`, written
 in the server's output timezone. Without it the top-level `meta.expiresAt` is `null` and
-the link has no `meta`. `location.type` is the media type the action declares, and
-`withType()` overrides it for one response, such as a file whose type varies. Meta you add with `withMeta()` joins `expiresAt`. Both shapes send
+the link has no `meta`. `location.type` is the media type the action declares. For a file
+whose type varies, the action declares `application/octet-stream` and the handler names each
+file's type with `withType()`, such as `withType('application/pdf')`. Any other declaration
+fixes the type: `withType()` may change its parameters, such as `text/csv; charset=utf-8`,
+but dispatching a different type throws a `LogicException`, since the published OpenAPI
+document allows only the declared one. Meta you add with `withMeta()` joins `expiresAt`. Both shapes send
 `Cache-Control: no-store` and `Vary: Accept`; a header you set with `withHeader()` wins.
 The `200` drops the `Location` header, since the URL is in the document.
 
