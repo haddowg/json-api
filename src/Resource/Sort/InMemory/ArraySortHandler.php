@@ -38,6 +38,11 @@ final class ArraySortHandler implements SortHandlerInterface
     private ?\Closure $admit = null;
 
     /**
+     * @var (\Closure(mixed, string, ?\haddowg\JsonApi\Resource\Field\RelationInterface): (iterable<mixed>|null))|null
+     */
+    private ?\Closure $read = null;
+
+    /**
      * @param iterable<ArraySortArmInterface> $arms author arms for custom sort types, consulted in order
      */
     public function __construct(iterable $arms = [])
@@ -56,6 +61,22 @@ final class ArraySortHandler implements SortHandlerInterface
     {
         $copy = clone $this;
         $copy->admit = $admit;
+
+        return $copy;
+    }
+
+    /**
+     * A copy that reads the rows each hop of a `->through()` sort reaches through `$read`,
+     * as {@see \haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler::withRelationReader()}
+     * does for filters, so a to-one read through a foreign key sorts by the row its data
+     * layer reads.
+     *
+     * @param \Closure(mixed, string, ?\haddowg\JsonApi\Resource\Field\RelationInterface): (iterable<mixed>|null) $read
+     */
+    public function withRelationReader(\Closure $read): self
+    {
+        $copy = clone $this;
+        $copy->read = $read;
 
         return $copy;
     }
@@ -103,8 +124,9 @@ final class ArraySortHandler implements SortHandlerInterface
     {
         if ($sort instanceof SortByField && $sort->through !== null) {
             $admit = $this->admit;
+            $read = $this->read;
 
-            return static fn(mixed $row): mixed => $sort->valueOf($row, $admit);
+            return static fn(mixed $row): mixed => $sort->valueOf($row, $admit, $read);
         }
 
         if ($sort instanceof SortByField) {

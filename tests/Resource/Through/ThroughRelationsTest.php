@@ -408,6 +408,22 @@ final class ThroughRelationsTest extends TestCase
     }
 
     #[Test]
+    public function aSortReadsEachHopThroughTheRelationReader(): void
+    {
+        $sort = $this->resolver()->resolveSort(SortByField::make('advertiserName', 'name')->through('owningCampaign.advertiser'), self::types()['leads']);
+        $leads = [(object) ['id' => 1], (object) ['id' => 2], (object) ['id' => 3]];
+        $campaigns = [1 => (object) ['advertiser' => (object) ['company_name' => 'Zenith']], 2 => (object) ['advertiser' => (object) ['company_name' => 'Acme']]];
+        // The leads hold no campaign; the reader supplies it, as a foreign-key read would.
+        $read = static fn(mixed $row, string $path, ?RelationInterface $relation): ?array => $path === 'campaign' && \is_object($row) && \is_int($row->id ?? null)
+            ? (isset($campaigns[$row->id]) ? [$campaigns[$row->id]] : [])
+            : null;
+
+        $sorted = (new ArraySortHandler())->withRelationReader($read)->apply([new SortDirective($sort, false)], $leads);
+        self::assertIsArray($sorted);
+        self::assertSame([3, 2, 1], self::idsOf($sorted));
+    }
+
+    #[Test]
     public function aCursorLevelReadsTheSortsValue(): void
     {
         $sort = $this->resolver()->resolveSort(SortByField::make('advertiserName', 'name')->through('owningCampaign.advertiser'), self::types()['leads']);

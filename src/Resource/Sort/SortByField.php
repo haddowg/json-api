@@ -95,15 +95,18 @@ final readonly class SortByField implements DescribedSort, \haddowg\JsonApi\Reso
      * {@see keysetValue()}, with `$admit` narrowing each reached row to the ones its
      * type's scope admits, so a row its scope hides reads as `null`.
      *
+     * `$read` reads a hop's rows instead of the model's value when it returns any.
+     *
      * @param (\Closure(string, list<mixed>, ?\haddowg\JsonApi\Resource\Field\RelationInterface=): list<mixed>)|null $admit
+     * @param (\Closure(mixed, string, ?\haddowg\JsonApi\Resource\Field\RelationInterface): (iterable<mixed>|null))|null $read
      */
-    public function valueOf(mixed $row, ?\Closure $admit = null): mixed
+    public function valueOf(mixed $row, ?\Closure $admit = null, ?\Closure $read = null): mixed
     {
         if ($this->through === null) {
             $value = Accessor::get($row, $this->column);
         } else {
             $path = $this->resolvedThrough ?? throw new \LogicException(\sprintf('Sort "%s" reaches through "%s", which has not been resolved; resolve it with a ThroughPathResolver before applying it.', $this->key, $this->through));
-            $reached = $path->reach($row, $admit);
+            $reached = $path->reach($row, $admit, $read);
             $value = $reached === [] ? null : Accessor::get($reached[0], $path->leafColumn());
         }
 

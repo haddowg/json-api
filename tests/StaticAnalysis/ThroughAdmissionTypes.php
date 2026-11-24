@@ -49,6 +49,6 @@ final class ThroughAdmissionTypes
              * @return list<mixed>
              */
             static fn(string $path, array $rows, ?RelationInterface $relation = null): array => $rows,
-        );
+        )->withRelationReader(static fn(mixed $row, string $path, ?RelationInterface $relation): ?array => null);
     }
 }
