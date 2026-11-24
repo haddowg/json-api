@@ -8,6 +8,7 @@ use haddowg\JsonApi\Resource\Field\Accessor;
 use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Field\StoredIdForms;
 use haddowg\JsonApi\Resource\Filter\DateRange;
 use haddowg\JsonApi\Resource\Filter\FilterHandlerInterface;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
@@ -73,6 +74,11 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private ?\Closure $admitMorph = null;
 
     /**
+     * @var (\Closure(mixed, string, ?RelationInterface): (iterable<mixed>|null))|null
+     */
+    private ?\Closure $read = null;
+
+    /**
      * @param iterable<ArrayFilterArmInterface> $arms author arms for custom filter types, consulted in order
      */
     public function __construct(iterable $arms = [])
@@ -96,6 +102,23 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $copy = clone $this;
         $copy->admit = $admit;
+
+        return $copy;
+    }
+
+    /**
+     * A copy that reads the rows a relationship hop reaches through `$read` instead of off
+     * the model, so a relation declared with a foreign key, whose members the parent model
+     * doesn't hold, is walked as its data layer reads it. `$read` receives the row, the
+     * dotted storage path walked so far and the relation the hop walks when the filter
+     * names it, and returns the related rows, or `null` to read the model's value.
+     *
+     * @param \Closure(mixed, string, ?RelationInterface): (iterable<mixed>|null) $read
+     */
+    public function withRelationReader(\Closure $read): self
+    {
+        $copy = clone $this;
+        $copy->read = $read;
 
         return $copy;
     }
@@ -179,12 +202,14 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         if ($admit !== null && $relation !== null && ($leafFilter instanceof WhereHas || $leafFilter instanceof WhereDoesntHave)) {
             $storage = $relation->column() ?? $relation->name();
             $walked = \implode('.', [...$path->storageSegments(), $storage]);
-            $holds = fn(mixed $reached): bool => ($members = $this->fanOut(Accessor::get($reached, $storage))) !== [] && $admit($walked, $members, $relation) !== [];
+            $holds = fn(mixed $reached): bool => ($members = $this->related($reached, $storage, $walked, $relation)) !== [] && $admit($walked, $members, $relation) !== [];
             $leaf = $leafFilter instanceof WhereHas ? $holds : static fn(mixed $reached): bool => !$holds($reached);
         }
 
-        return static function (mixed $row) use ($path, $leaf, $admit): bool {
-            foreach ($path->reach($row, $admit) as $reached) {
+        $read = $this->read;
+
+        return static function (mixed $row) use ($path, $leaf, $admit, $read): bool {
+            foreach ($path->reach($row, $admit, $read) as $reached) {
                 if ($leaf($reached)) {
                     return true;
                 }
@@ -496,7 +521,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $isLeafHop = $rest === [];
         $path = $walked === '' ? $segment : $walked . '.' . $segment;
 
-        $reached = $this->fanOut(Accessor::get($row, $segment));
+        $reached = $this->related($row, $segment, $path, null);
         if ($this->admit !== null && $reached !== []) {
             $reached = ($this->admit)($path, $reached);
         }
@@ -516,6 +541,19 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         }
 
         return false;
+    }
+
+    /**
+     * The rows `$row` reaches through the relation stored under `$segment`: what the
+     * relation reader returns for the walked `$path`, else the model's value fanned out.
+     *
+     * @return list<mixed>
+     */
+    private function related(mixed $row, string $segment, string $path, ?RelationInterface $relation): array
+    {
+        $read = $this->read !== null ? ($this->read)($row, $path, $relation) : null;
+
+        return $read !== null ? $this->fanOut($read) : $this->fanOut(Accessor::get($row, $segment));
     }
 
     /**
@@ -587,7 +625,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $selection = $filter->selection($value);
         $target = $filter->resolvedTarget();
         $relation = $target?->relation;
-        $key = static fn(mixed $id): string => \is_scalar($id) ? (string) $id : '';
+        $key = static fn(mixed $id): string => \is_int($id) || \is_string($id) || $id instanceof \Stringable ? StoredIdForms::comparable($id) : (\is_scalar($id) ? (string) $id : '');
         // A stored id may be the target's storage key or its wire id.
         if ($selection->ids !== null && $target !== null) {
             $selection = new MorphSelection($selection->type, $target->storedForms($selection->type, $selection->ids));

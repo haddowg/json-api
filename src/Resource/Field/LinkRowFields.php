@@ -96,6 +96,10 @@ final readonly class LinkRowFields
             $stored = $stored->value;
         }
         $id = Accessor::get($row, $this->id);
+        // A key held as a value object, such as a Uuid, is its string form.
+        if ($id instanceof \Stringable) {
+            $id = (string) $id;
+        }
         if ((!\is_string($stored) && !\is_int($stored)) || (!\is_int($id) && (!\is_string($id) || $id === ''))) {
             return null;
         }

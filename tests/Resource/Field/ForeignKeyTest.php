@@ -16,6 +16,8 @@ use haddowg\JsonApi\Resource\Field\HasManyBuilder;
 use haddowg\JsonApi\Resource\Field\HasOne;
 use haddowg\JsonApi\Resource\Field\HasOneBuilder;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\MorphColumns;
+use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Serializer\RelationForeignKeyValidator;
 use haddowg\JsonApi\Server\Server;
@@ -94,6 +96,48 @@ final class ForeignKeyTest extends TestCase
         self::assertTrue($byRelation->isRelation());
 
         self::assertNull(ForeignKey::of(self::relation($owners, 'plain'), $server));
+    }
+
+    #[Test]
+    public function aMorphToIdentifiedByColumnsResolvesToItsTwoFields(): void
+    {
+        $server = self::server()->register(MorphForeignKeyNoteResource::class)->register(MorphForeignKeyOwnerResource::class);
+        $owners = $server->serializerFor('morph-owners');
+        self::assertInstanceOf(AbstractResource::class, $owners);
+
+        $foreignKey = ForeignKey::of(self::relation($owners, 'notes'), $server);
+        self::assertNotNull($foreignKey);
+        self::assertTrue($foreignKey->isRelation());
+        self::assertEquals(new MorphColumns('ownerType', 'ownerId', ['morph-owners', 'owners'], ['Owner' => 'morph-owners', 'Other' => 'owners']), $foreignKey->morphColumns());
+        self::assertSame(['Owner'], $foreignKey->morphColumns()?->storedValues('morph-owners'));
+        $plain = $server->serializerFor('owners');
+        self::assertInstanceOf(AbstractResource::class, $plain);
+        self::assertNull(ForeignKey::of(self::relation($plain, 'authored'), $server)?->morphColumns());
+
+        (new RelationForeignKeyValidator($server))->validate('morph-owners', $owners);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function morphFields(): iterable
+    {
+        yield 'id field' => ['ownerId'];
+        yield 'a field stored in the id field' => ['legacyOwner'];
+        yield 'type field' => ['ownerType'];
+    }
+
+    #[Test]
+    #[DataProvider('morphFields')]
+    public function theValidatorRejectsAFieldAMorphToKeepsItsTargetIn(string $foreignKey): void
+    {
+        BadMorphForeignKeyOwnerResource::$foreignKey = $foreignKey;
+        $server = self::server()->register(MorphForeignKeyNoteResource::class)->register(MorphForeignKeyOwnerResource::class)->register(BadMorphForeignKeyOwnerResource::class);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Relation "notes" on resource type "morph-owners-bad" reads through the foreign key "' . $foreignKey . '" on type "morph-notes", but it is a field the polymorphic relation "owner" stores its target in, whose ids may belong to any of several types, so rows pointing at another type with the same id would be read too. Name the MorphTo "owner" as the foreign key instead.');
+
+        (new RelationForeignKeyValidator($server))->validate('morph-owners-bad', $server->serializerFor('morph-owners-bad'));
     }
 
     #[Test]
@@ -215,5 +259,43 @@ final class BadForeignKeyOwnerResource extends AbstractResource
     public function fields(): array
     {
         return [Id::make(), HasMany::make('notes', 'fk-notes', self::$foreignKey)];
+    }
+}
+
+final class MorphForeignKeyNoteResource extends AbstractResource
+{
+    public static string $type = 'morph-notes';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            Str::make('ownerType'),
+            Str::make('ownerId'),
+            Str::make('legacyOwner')->storedAs('ownerId'),
+            MorphTo::make('owner', ['morph-owners', 'owners'])->identifiedByColumns('ownerType', 'ownerId', ['Owner' => 'morph-owners', 'Other' => 'owners']),
+        ];
+    }
+}
+
+final class MorphForeignKeyOwnerResource extends AbstractResource
+{
+    public static string $type = 'morph-owners';
+
+    public function fields(): array
+    {
+        return [Id::make(), HasMany::make('notes', 'morph-notes', 'owner')];
+    }
+}
+
+final class BadMorphForeignKeyOwnerResource extends AbstractResource
+{
+    public static string $type = 'morph-owners-bad';
+
+    public static string $foreignKey = 'ownerId';
+
+    public function fields(): array
+    {
+        return [Id::make(), HasMany::make('notes', 'morph-notes', self::$foreignKey)];
     }
 }

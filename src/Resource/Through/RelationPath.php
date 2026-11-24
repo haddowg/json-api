@@ -230,15 +230,17 @@ final readonly class RelationPath
      * The rows `$row` reaches through every hop, fanning out across each to-many, as the
      * reference in-memory handlers walk them. `$admit` narrows the rows each hop reaches
      * to the ones the reached type's scope admits, given the dotted storage path walked so
-     * far, the rows, and the relation the hop walks.
+     * far, the rows, and the relation the hop walks. `$read` reads a hop's rows instead of
+     * the model's value when it returns any, given the row, the path and the relation.
      *
      * @param (\Closure(string, list<mixed>, ?RelationInterface=): list<mixed>)|null $admit
+     * @param (\Closure(mixed, string, ?RelationInterface): (iterable<mixed>|null))|null $read
      *
      * @return list<mixed>
      *
      * @throws \LogicException when the path reaches a pivot row
      */
-    public function reach(mixed $row, ?\Closure $admit = null): array
+    public function reach(mixed $row, ?\Closure $admit = null, ?\Closure $read = null): array
     {
         if ($this->reachesPivot()) {
             throw new \LogicException(\sprintf('The path "%s" reaches a pivot row, which an in-memory row holds no member for; only a data layer that reads pivot rows can follow it.', $this->path));
@@ -248,7 +250,8 @@ final readonly class RelationPath
         foreach ($this->hops as $hop) {
             $next = [];
             foreach ($rows as $current) {
-                foreach (self::fanOut(Accessor::get($current, $hop->storage())) as $related) {
+                $held = $read !== null ? $read($current, $hop->path, $hop->relation) : null;
+                foreach (self::fanOut($held ?? Accessor::get($current, $hop->storage())) as $related) {
                     $next[] = $related;
                 }
             }

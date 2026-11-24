@@ -37,6 +37,10 @@ allowed related type); the last two are polymorphic (several).
 | `MorphTo` | to-one | polymorphic FK | `make('item', ['tracks', 'albums', 'artists'])` |
 | `MorphToMany` | to-many | polymorphic collection | `make('items', ['tracks', 'albums', 'artists'])` |
 
+`MorphMany` and `MorphOne` aren't classes of their own: they build a `HasMany` and a
+`HasOne` read through a `MorphTo` of the related type, see
+[a foreign key through a polymorphic relation](#a-foreign-key-through-a-polymorphic-relation).
+
 The related resource type is a **mandatory** second argument to `make()` — a
 single type for a monomorphic relation, a non-empty list for a polymorphic one.
 A relationship cannot be declared without it.
@@ -152,7 +156,8 @@ The foreign key must name a member of the related type that holds the parent's i
 
 - a stored field, compared with the parent's id as storage holds it, that is the
   parent's wire id decoded through its [id encoder](ids.md) when it declares one;
-- or a to-one relation whose related type is the parent's type.
+- or a to-one relation whose related type is the parent's type, which may be a
+  [`MorphTo` declared with `identifiedByColumns()`](#a-foreign-key-through-a-polymorphic-relation).
 
 `RelationForeignKeyValidator` checks that at warm-up, and a host runs it once per
 registered resource. A `BelongsToMany` takes no foreign key, since its members live in
@@ -174,6 +179,41 @@ foreign key its storage requires with the `403` of the mutation that drops the m
 Overriding `HasMany::make()` or `HasOne::make()` in a subclass now needs the third
 `?string $foreignKey = null` parameter, since PHP checks a static method's signature
 against its parent's.
+
+### A foreign key through a polymorphic relation
+
+When the related rows point back at their parent through a `MorphTo`, declare the inverse
+with `MorphMany` or `MorphOne`, naming that `MorphTo`:
+
+```php
+// NoteResource
+MorphTo::make('owner', ['posts', 'videos'])
+    ->identifiedByColumns(type: 'ownerType', id: 'ownerId'),
+
+// PostResource
+MorphMany::make('notes', 'notes', 'owner'),
+MorphOne::make('latestNote', 'notes', 'owner'),
+```
+
+`MorphMany::make()` builds the same `HasMany` as `HasMany::make('notes', 'notes',
+'owner')`, and `MorphOne::make()` the same `HasOne`; the only difference is that warm-up
+refuses them unless the member they name is a `MorphTo` of the related type.
+`HasMany::make()` naming a `MorphTo` reads the same way.
+
+A post's notes are then the notes whose `ownerType` holds a stored value naming `posts`
+and whose `ownerId` holds one of the posts' keys, on every read the foreign key decides.
+A write sets both fields on the rows that join, the type field to
+`MorphColumns::storedValueFor()` the parent's type, and clears both on the rows that
+leave. A data layer gets the two fields from `ForeignKey::morphColumns()`, which is `null`
+for any other foreign key, and the stored values naming the parent's type from
+`MorphColumns::storedValues()`. Core checks only that the member is a `MorphTo`; each data
+layer checks that it can compare it, such as a `MorphTo` declared with
+`identifiedByColumns()` on Doctrine or a native `morphTo` on Eloquent.
+
+Naming the id field itself, `HasMany::make('notes', 'notes', 'ownerId')`, is refused at
+warm-up, as is naming the type field: the id field holds the ids of posts and videos
+alike, so the relation would read a video's notes as a post's whenever their ids match.
+Name the `MorphTo` instead.
 
 ## BelongsToMany — a pivot-backed to-many
 
@@ -492,8 +532,9 @@ morph map does:
 ]),
 ```
 
-A stored type the map doesn't name, or that names no declared type, throws a
-`\LogicException`. Because the fields are declared, a data layer can compare them in a
+An id held as a `\Stringable` value object, such as a Symfony `Uuid` hydrated from a
+`uuid` column, is its string form. A stored type the map doesn't name, or that names no
+declared type, throws a `\LogicException`. Because the fields are declared, a data layer can compare them in a
 query, which a [`WhereMorph`](filters.md#filtering-by-a-polymorphic-relation-wheremorph)
 filter needs: `MorphTo::identifierColumns()` returns them as a `MorphColumns`, or `null`
 for a relation identified by a closure. Like `identifiedBy()` it changes reads only.
@@ -505,7 +546,7 @@ column holding the ids of several kinds of target often keeps the wire form. The
 related read, an include and a `WhereMorph` accept either: `StoredIdForms::wireId()` turns a
 stored id in either form into its wire id, and `MorphTarget::storedForms()` lists the forms
 a filter compares a column against. Link rows declared with `identifiedByRows()` work the
-same way. A stored id counts as a wire id when the encoder decodes it and encodes the result
+same way, and a link row's id held as a value object is its string form too. A uuid-shaped id with no id encoder renders in lower case, as a uuid does, whatever case the column keeps. A data layer matches a column that keeps it all in lower case or all in upper case, binding both forms so an index on the column still serves the query, but not one that mixes case within an id. A stored id counts as a wire id when the encoder decodes it and encodes the result
 back to the same id, so with an encoder whose storage keys also survive that round trip,
 store one form consistently.
 
@@ -522,6 +563,10 @@ The build refuses these declarations:
 Keep `identifiedBy()` for storage two fields can't describe. A data layer can't compare a
 closure in a query, so a `WhereMorph` needs `identifiedByColumns()` on the Doctrine and
 in-memory providers.
+
+The same two fields serve a `HasMany` or `HasOne` on each target type that reads the
+target's rows back, named by the `MorphTo`: see
+[a foreign key through a polymorphic relation](#a-foreign-key-through-a-polymorphic-relation).
 
 A data layer loads included and related targets from the pairs, one query per type.
 `MorphTo::storedIdentifiers($parents, $request)` returns the stored ids of a page of
@@ -571,6 +616,10 @@ storage key. Each is a field of the row as its model sees it, a Doctrine propert
 Eloquent attribute or relation, never a database column, so a data layer can query the
 rows itself. Core reads them in memory as the relation's value on the parent, which
 `storedAs()` or `extractUsing()` points at the parent's collection of rows.
+
+The `owner` field must identify exactly one owning type. A data layer reads a parent's
+rows by that field alone, with no owner type beside it, so a link table shared by several
+owner types, whose owner ids may collide, isn't supported yet.
 
 The stored type is the JSON:API type unless you pass `typeMap`, from stored value to
 JSON:API type, as an Eloquent morph map stores `agency` for `agencies`:
@@ -828,6 +877,17 @@ witness covers writes as well as reads. `$newRow` makes a new row, a `through()`
 by default. `$storeRows` receives the parent and the rows as a list and returns the
 parent, so a host keeps its own collection type, such as a Doctrine `Collection`; by
 default the list is written to the relation's field.
+
+## Laravel's polymorphic relations
+
+Each of Eloquent's polymorphic relations has a counterpart here, apart from one:
+
+| Eloquent | Here |
+| --- | --- |
+| `morphTo` | `MorphTo`, declared with `identifiedByColumns()` to read its type and id columns |
+| `morphMany`, `morphOne` | `MorphMany`, `MorphOne`, naming the related type's `MorphTo` |
+| `morphedByMany` | `MorphToMany` with `identifiedByRows()`, the link table's owner field naming one owning type |
+| `morphToMany` | not yet: the owner side of its link table is polymorphic, and link rows have no owner type |
 
 ## Backing and advisory metadata
 

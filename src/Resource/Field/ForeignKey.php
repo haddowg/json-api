@@ -16,7 +16,8 @@ use haddowg\JsonApi\Serializer\SerializerInterface;
  * relation off the parent model.
  *
  * The member is either a stored field holding the parent's id or a to-one relation to
- * the parent's type. {@see \haddowg\JsonApi\Serializer\RelationForeignKeyValidator}
+ * the parent's type, which may be a `MorphTo` declared with `identifiedByColumns()`
+ * ({@see morphColumns()}). {@see \haddowg\JsonApi\Serializer\RelationForeignKeyValidator}
  * checks that at warm-up, so {@see of()} only resolves.
  */
 final readonly class ForeignKey
@@ -39,6 +40,18 @@ final readonly class ForeignKey
     public function isRelation(): bool
     {
         return $this->toOne !== null;
+    }
+
+    /**
+     * The fields a polymorphic foreign key keeps its target in, when the foreign key is a
+     * `MorphTo` declared with {@see MorphToBuilder::identifiedByColumns()}, or `null`
+     * otherwise. A data layer reads such a relation as the related rows whose type field
+     * holds one of {@see MorphColumns::storedValues()} for the parent's type and whose id
+     * field holds one of the parents' keys, and a write sets both fields.
+     */
+    public function morphColumns(): ?MorphColumns
+    {
+        return $this->toOne instanceof MorphTo ? $this->toOne->identifierColumns() : null;
     }
 
     /**

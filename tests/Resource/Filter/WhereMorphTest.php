@@ -178,6 +178,23 @@ final class WhereMorphTest extends TestCase
     }
 
     #[Test]
+    public function aUuidStoredInAnotherCaseStillMatches(): void
+    {
+        $rows = [
+            ['id' => 1, 'subjectType' => 'templates', 'subjectId' => '0193D1C2-7A4E-7C55-9A8E-5F0C3B2D1E01'],
+            ['id' => 2, 'subjectType' => 'templates', 'subjectId' => '0193d1c2-7a4e-7c55-9a8e-5f0c3b2d1e02'],
+        ];
+        $handler = new ArrayFilterHandler();
+        $ids = fn(mixed $value): array => \array_column($handler->apply($this->filter(), $rows, $value), 'id');
+
+        self::assertSame([1], $ids(['type' => 'templates', 'id' => '0193d1c2-7a4e-7c55-9a8e-5f0c3b2d1e01']));
+        self::assertSame([2], $ids(['type' => 'templates', 'id' => '0193D1C2-7A4E-7C55-9A8E-5F0C3B2D1E02']));
+        $target = $this->filter()->resolvedTarget();
+        self::assertNotNull($target);
+        self::assertSame(['0193d1c2-7a4e-7c55-9a8e-5f0c3b2d1e01', '0193D1C2-7A4E-7C55-9A8E-5F0C3B2D1E01'], $target->storedForms('templates', ['0193d1c2-7a4e-7c55-9a8e-5f0c3b2d1e01']));
+    }
+
+    #[Test]
     public function theInMemoryHandlerLooksForAMorphToManysMember(): void
     {
         $fields = [

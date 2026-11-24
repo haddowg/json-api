@@ -32,6 +32,17 @@ class HasManyBuilder extends AbstractRelationBuilder
         return (new static($name))->withRelatedTypes($type)->readThroughForeignKey($foreignKey);
     }
 
+    /**
+     * Starts a to-many relation to `$type` read through `$morphTo`, the related type's
+     * `MorphTo` pointing back at the parent. {@see MorphMany::make()} is the way to call it.
+     *
+     * @internal
+     */
+    public static function morphMany(string $name, string $type, string $morphTo): self
+    {
+        return (new self($name))->withRelatedTypes($type)->readThroughMorphTo($morphTo);
+    }
+
     protected function buildsToMany(): bool
     {
         return true;

@@ -213,6 +213,8 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
      */
     protected ?string $foreignKey = null;
 
+    protected bool $foreignKeyIsMorph = false;
+
     /**
      * Freezes the accumulated authoring state into the concrete readonly relation
      * value object the engine consumes. Pure and idempotent.
@@ -795,6 +797,21 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
     }
 
     /**
+     * Records the related type's `MorphTo` that points back at the parent as the foreign
+     * key, as {@see MorphMany} and {@see MorphOne} declare it, so warm-up refuses any
+     * other member.
+     *
+     * @return static
+     */
+    protected function readThroughMorphTo(string $morphTo): static
+    {
+        $this->readThroughForeignKey($morphTo);
+        $this->foreignKeyIsMorph = true;
+
+        return $this;
+    }
+
+    /**
      * Whether this builder builds a to-many relation, which alone may declare a
      * {@see defaultSort()} or {@see cannotChangeMembership()}.
      */
@@ -860,6 +877,7 @@ abstract class AbstractRelationBuilder extends AbstractFieldBuilder
             foreignKey: $this->foreignKey,
             identifierMetaAdditional: $this->identifierMetaAdditional,
             pivotAdditional: $this->pivotAdditional,
+            foreignKeyIsMorph: $this->foreignKeyIsMorph,
         );
     }
 }

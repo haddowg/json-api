@@ -15,12 +15,15 @@ final class StoredIdForms
     /**
      * The wire id a stored reference in either form names. A value the encoder decodes
      * and encodes back to the same id, ignoring case, is a wire id already, and anything
-     * else is a storage key, encoded.
+     * else is a storage key, encoded. With no encoder the stored id is the wire id, except
+     * that a uuid-shaped one, in the canonical 8-4-4-4-12 hex form, is lower-cased, as a uuid
+     * renders and as RFC 9562 writes it, so a linkage read from a column holding it in
+     * capitals still names the target the include renders. Anything else passes through.
      */
     public static function wireId(?IdEncoderInterface $encoder, string|int $stored): string
     {
         if ($encoder === null) {
-            return (string) $stored;
+            return self::comparable($stored);
         }
 
         $decoded = $encoder->decode((string) $stored);
@@ -35,9 +38,29 @@ final class StoredIdForms
     }
 
     /**
+     * `$id` as it compares with another id: a uuid-like string, which a text column may
+     * hold in either case, in lower case, and anything else as its string unchanged.
+     */
+    public static function comparable(string|int|\Stringable $id): string
+    {
+        $id = (string) $id;
+
+        return self::isUuidLike($id) ? \strtolower($id) : $id;
+    }
+
+    /**
+     * Whether `$id` is a uuid in its canonical 8-4-4-4-12 hex form, in any case.
+     */
+    public static function isUuidLike(string $id): bool
+    {
+        return \strlen($id) === 36 && \preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id) === 1;
+    }
+
+    /**
      * Each storage key in `$storageKeys` followed by its wire id when the two differ, so a
-     * stored reference in either form matches. A key the encoder can't encode is kept as
-     * it is.
+     * stored reference in either form matches. A uuid-like form is listed in lower and
+     * upper case too, since a text column may keep either. A key the encoder can't encode
+     * is kept as it is.
      *
      * @param list<mixed> $storageKeys
      *
@@ -51,6 +74,12 @@ final class StoredIdForms
             $candidates = [$key];
             if ($encoder !== null && (\is_scalar($key) || $key instanceof \Stringable)) {
                 $candidates[] = $encoder->encode($key);
+            }
+            foreach ($candidates as $candidate) {
+                if (\is_string($candidate) && self::isUuidLike($candidate)) {
+                    $candidates[] = \strtolower($candidate);
+                    $candidates[] = \strtoupper($candidate);
+                }
             }
             foreach ($candidates as $candidate) {
                 $seenAs = \is_scalar($candidate) || $candidate instanceof \Stringable ? (string) $candidate : null;

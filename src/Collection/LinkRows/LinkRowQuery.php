@@ -9,6 +9,7 @@ use haddowg\JsonApi\Pagination\WindowInterface;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\LinkRowFields;
 use haddowg\JsonApi\Resource\Field\MorphToMany;
+use haddowg\JsonApi\Resource\Field\StoredIdForms;
 use haddowg\JsonApi\Resource\Filter\FilterDirective;
 use haddowg\JsonApi\Resource\Filter\FilterInterface;
 use haddowg\JsonApi\Resource\Filter\FilterMatcher;
@@ -111,13 +112,13 @@ final readonly class LinkRowQuery
             $union = [];
             foreach ($stored as $byType) {
                 foreach ($byType[$type] ?? [] as $id) {
-                    $union[(string) $id] ??= $id;
+                    $union[StoredIdForms::comparable($id)] ??= $id;
                 }
             }
             $admitted[$type] = [];
             if ($union !== []) {
                 foreach ($admit($type, \array_values($union)) as $id) {
-                    $admitted[$type][(string) $id] = true;
+                    $admitted[$type][StoredIdForms::comparable($id)] = true;
                 }
             }
         }
@@ -128,7 +129,7 @@ final readonly class LinkRowQuery
             foreach ($guarded as $type) {
                 $query = $query->withAdmitted($type, \array_values(\array_filter(
                     $stored[$index][$type] ?? [],
-                    static fn(string|int $id): bool => isset($admitted[$type][(string) $id]),
+                    static fn(string|int $id): bool => isset($admitted[$type][StoredIdForms::comparable($id)]),
                 )));
             }
             $queries[] = $query;
@@ -147,9 +148,9 @@ final readonly class LinkRowQuery
             return true;
         }
 
-        $id = (string) $member->id;
+        $id = StoredIdForms::comparable($member->id);
         foreach ($this->admitted[$member->type] as $admitted) {
-            if ((string) $admitted === $id) {
+            if (StoredIdForms::comparable($admitted) === $id) {
                 return true;
             }
         }
