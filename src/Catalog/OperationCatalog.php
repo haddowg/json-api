@@ -98,6 +98,7 @@ final class OperationCatalog
             securityLevel: $security->level,
             requiredScopes: $scopes,
             safety: $key->safety,
+            additionalGates: $security->additionalGates,
         );
     }
 

@@ -23,6 +23,7 @@ final readonly class OperationDefinition
      * @param list<string>         $tags
      * @param string|bool|null     $security       the security rule as the integration declares it
      * @param list<string>         $requiredScopes every scope the operation needs, including the read scopes of what a related read returns
+     * @param list<AdditionalGate> $additionalGates the other rules the operation enforces besides `$security`, each of which can refuse it on its own
      */
     public function __construct(
         public string $server,
@@ -40,5 +41,6 @@ final readonly class OperationDefinition
         public SecurityLevel $securityLevel,
         public array $requiredScopes,
         public ?OperationSafety $safety,
+        public array $additionalGates = [],
     ) {}
 }
