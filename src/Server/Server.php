@@ -1003,7 +1003,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
             ? \haddowg\JsonApi\OpenApi\Metadata\ActionResponses::location($operation->responds())
             : null;
         if ($location?->mediaType !== null && $response instanceof \haddowg\JsonApi\Response\SeeOtherResponse) {
-            $response = $response->fromAction($location->mediaType);
+            $response = $response->fromAction($location);
         }
         $dataStatus = $operation instanceof \haddowg\JsonApi\Operation\CustomActionOperation
             ? \haddowg\JsonApi\OpenApi\Metadata\ActionResponses::dataStatus($operation->responds())

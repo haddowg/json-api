@@ -191,13 +191,59 @@ final class ActionLocationTest extends TestCase
     #[Test]
     public function theTypeIsTheDeclaredMediaTypeUnlessTheHandlerSetsOne(): void
     {
-        $declared = [new SeeOther(mediaType: 'text/csv')];
-
-        $typed = $this->decode($this->action(SeeOtherResponse::to(self::URL), self::JSON_API, $declared));
-        $handlerTyped = $this->decode($this->action(SeeOtherResponse::to(self::URL)->withType('application/pdf'), self::JSON_API, $declared));
+        $typed = $this->decode($this->action(SeeOtherResponse::to(self::URL), self::JSON_API, [new SeeOther(mediaType: 'text/csv')]));
+        $handlerTyped = $this->decode($this->action(SeeOtherResponse::to(self::URL)->withType('application/pdf'), self::JSON_API));
 
         self::assertSame('text/csv', $this->location($typed)['type'] ?? null);
         self::assertSame('application/pdf', $this->location($handlerTyped)['type'] ?? null);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function typesWithTheDeclaredEssence(): iterable
+    {
+        yield 'a charset parameter' => ['text/csv; charset=utf-8'];
+        yield 'another case' => ['Text/CSV'];
+        yield 'another case and a parameter' => ['TEXT/csv;header=present'];
+    }
+
+    #[Test]
+    #[DataProvider('typesWithTheDeclaredEssence')]
+    public function aHandlerMayChangeOnlyTheParametersOfADeclaredType(string $mediaType): void
+    {
+        $document = $this->decode($this->action(SeeOtherResponse::to(self::URL)->withType($mediaType), self::JSON_API, [new SeeOther(mediaType: 'text/csv')]));
+
+        self::assertSame($mediaType, $this->location($document)['type'] ?? null);
+    }
+
+    #[Test]
+    public function aHandlerTypeTheDeclaredTypeDoesNotAdmitThrowsAtDispatch(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('The action declares that its URL serves "text/csv", so its location cannot be typed "application/pdf"');
+
+        $this->action(SeeOtherResponse::to(self::URL)->withType('application/pdf'), self::JSON_API, [new SeeOther(mediaType: 'text/csv')]);
+    }
+
+    #[Test]
+    public function aTypeSetAfterDispatchIsCheckedAgainstTheDeclaration(): void
+    {
+        $marked = SeeOtherResponse::to(self::URL)->fromAction(new SeeOther(mediaType: 'text/csv'));
+
+        self::assertSame('text/csv; charset=utf-8', $marked->withType('text/csv; charset=utf-8')->type());
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('"text/csv"');
+
+        $marked->withType('application/pdf');
+    }
+
+    #[Test]
+    public function anActionWithoutADeclaredMediaTypeChecksNoType(): void
+    {
+        $response = $this->action(SeeOtherResponse::to('/articles/1')->withType('application/pdf'), self::JSON_API, [new SeeOther()]);
+
+        self::assertSame(303, $response->getStatusCode());
     }
 
     #[Test]

@@ -72,6 +72,19 @@ final class ActionLocationProjectionTest extends TestCase
     }
 
     #[Test]
+    public function anOctetStreamDeclarationLeavesTheLocationTypeOpenWithTheDeclaredTypeAsItsExample(): void
+    {
+        $responses = $this->responses($this->project([new SeeOther(mediaType: 'Application/Octet-Stream')]));
+
+        self::assertSame(['allOf' => [
+            ['$ref' => '#/components/schemas/LocationDocument'],
+            ['type' => 'object', 'properties' => ['links' => ['type' => 'object', 'properties' => [
+                'location' => ['type' => 'object', 'properties' => ['type' => ['type' => 'string', 'examples' => ['Application/Octet-Stream']]]],
+            ]]]],
+        ]], $this->at($responses, '200', 'content', 'application/vnd.api+json', 'schema'));
+    }
+
+    #[Test]
     public function aDeclared200DocumentJoinsTheLocationDocumentInAOneOf(): void
     {
         $responses = $this->responses($this->project([new ActionResource('articles'), new SeeOther(mediaType: 'application/octet-stream')]));
@@ -81,7 +94,7 @@ final class ActionLocationProjectionTest extends TestCase
             ['allOf' => [
                 ['$ref' => '#/components/schemas/LocationDocument'],
                 ['type' => 'object', 'properties' => ['links' => ['type' => 'object', 'properties' => [
-                    'location' => ['type' => 'object', 'properties' => ['type' => ['type' => 'string', 'const' => 'application/octet-stream']]],
+                    'location' => ['type' => 'object', 'properties' => ['type' => ['type' => 'string', 'examples' => ['application/octet-stream']]]],
                 ]]]],
             ]],
         ]], $this->at($responses, '200', 'content', 'application/vnd.api+json', 'schema'));
@@ -157,7 +170,8 @@ final class ActionLocationProjectionTest extends TestCase
     #[Test]
     public function onlyADocumentWithSuchAnActionCarriesTheTier(): void
     {
-        self::assertSame(GeneratorContract::toArray(actionLocations: true), $this->at($this->project([new SeeOther(mediaType: 'application/octet-stream')]), 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(actionLocations: true, varyingLocationTypes: true), $this->at($this->project([new SeeOther(mediaType: 'application/octet-stream')]), 'info', 'x-generator'));
+        self::assertSame(GeneratorContract::toArray(actionLocations: true), $this->at($this->project([new SeeOther(mediaType: 'text/csv')]), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project([new SeeOther('The job is done.')]), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project(null), 'info', 'x-generator'));
         self::assertSame(['contract' => GeneratorContract::BASELINE], $this->at($this->project(null, fetchOne: [new Ok(), new SeeOther()]), 'info', 'x-generator'));
