@@ -585,8 +585,13 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private function whereMorph(WhereMorph $filter, mixed $value): \Closure
     {
         $selection = $filter->selection($value);
-        $relation = $filter->resolvedTarget()?->relation;
+        $target = $filter->resolvedTarget();
+        $relation = $target?->relation;
         $key = static fn(mixed $id): string => \is_scalar($id) ? (string) $id : '';
+        // A stored id may be the target's storage key or its wire id.
+        if ($selection->ids !== null && $target !== null) {
+            $selection = new MorphSelection($selection->type, $target->storedForms($selection->type, $selection->ids));
+        }
         $wanted = $selection->ids === null ? null : \array_map($key, $selection->ids);
         $admitted = $relation === null ? null : $this->morphAdmitted($relation, $selection, $key);
         $matches = static fn(string $type, mixed $id): bool => $type === $selection->type

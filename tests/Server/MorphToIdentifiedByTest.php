@@ -231,6 +231,14 @@ final class MorphToIdentifiedByTest extends TestCase
     }
 
     #[Test]
+    public function aStoredWireIdRendersAsItIs(): void
+    {
+        $body = $this->get(self::campaign('advertisers', 'adv-3'), null);
+
+        self::assertSame(['type' => 'advertisers', 'id' => 'adv-3'], $body['data']['relationships']['target']['data']);
+    }
+
+    #[Test]
     public function theRelationshipEndpointRendersThePair(): void
     {
         $body = $this->handle(

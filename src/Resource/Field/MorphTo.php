@@ -73,8 +73,8 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
     }
 
     /**
-     * The target's `[type, id]` as the parent stores it, with `id` the storage key
-     * rather than its encoded wire form, or `null` when the relation is empty.
+     * The target's `[type, id]` as the parent stores it, with `id` the storage key or
+     * the wire id, whichever it holds, or `null` when the relation is empty.
      *
      * @return array{0: string, 1: string|int}|null
      *
