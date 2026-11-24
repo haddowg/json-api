@@ -1135,6 +1135,9 @@ no relation of that name or the relation isn't polymorphic. The resolved filter 
 requested value through `requested($value)`, which checks the shape and the type and
 returns the wire ids, and through `selection($value)`, which returns a `MorphSelection` of
 the type and the decoded storage keys, with `ids` `null` when the request names none.
+A stored id may hold a target's storage key or its wire id, so a data layer compares the
+column against `MorphTarget::storedForms($type, $selection->ids)`, which lists each key and,
+when the type's encoder renders it differently, its wire id.
 `idConstraints($type)` returns what each id of a type validates against.
 
 In the OpenAPI document `filter[<key>]` is a `deepObject` whose `type` is an enum of the

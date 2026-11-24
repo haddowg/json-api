@@ -498,6 +498,17 @@ query, which a [`WhereMorph`](filters.md#filtering-by-a-polymorphic-relation-whe
 filter needs: `MorphTo::identifierColumns()` returns them as a `MorphColumns`, or `null`
 for a relation identified by a closure. Like `identifiedBy()` it changes reads only.
 
+The id field may hold the target's storage key, which is what a write through core stores,
+or its wire id. The two differ only when the target type declares an
+[id encoder](ids.md#encoding-when-the-wire-id-differs-from-the-storage-key), and a text
+column holding the ids of several kinds of target often keeps the wire form. The linkage, a
+related read, an include and a `WhereMorph` accept either: `StoredIdForms::wireId()` turns a
+stored id in either form into its wire id, and `MorphTarget::storedForms()` lists the forms
+a filter compares a column against. Link rows declared with `identifiedByRows()` work the
+same way. A stored id counts as a wire id when the encoder decodes it and encodes the result
+back to the same id, so with an encoder whose storage keys also survive that round trip,
+store one form consistently.
+
 The build refuses these declarations:
 
 | Declared | Why |

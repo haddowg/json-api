@@ -8,6 +8,7 @@ use haddowg\JsonApi\Exception\FilterValueInvalid;
 use haddowg\JsonApi\Resource\Constraint\ConstraintInterface;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\PolymorphicRelationInterface;
+use haddowg\JsonApi\Resource\Field\StoredIdForms;
 
 /**
  * A {@see WhereMorph}'s relation resolved against the type it filters, by
@@ -54,5 +55,27 @@ final readonly class MorphTarget
 
         return $encoder->decode((string) $wireId)
             ?? throw new FilterValueInvalid($key . '][id', [\sprintf('"%s" is not the id of a "%s" resource.', $wireId, $type)]);
+    }
+
+    /**
+     * The values a stored reference to the targets of `$type` with the storage keys
+     * `$storageKeys` may hold: each key and, when the type's id encoder renders it
+     * differently, its wire id. A polymorphic id column may hold either.
+     *
+     * @param list<mixed> $storageKeys
+     *
+     * @return list<mixed>
+     */
+    public function storedForms(string $type, array $storageKeys): array
+    {
+        return StoredIdForms::forms(($this->ids[$type] ?? null)?->encoder(), $storageKeys);
+    }
+
+    /**
+     * The wire id of `$type` a stored reference names, whichever form it holds.
+     */
+    public function wireId(string $type, string|int $stored): string
+    {
+        return StoredIdForms::wireId(($this->ids[$type] ?? null)?->encoder(), $stored);
     }
 }

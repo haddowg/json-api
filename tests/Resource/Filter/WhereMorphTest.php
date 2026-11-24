@@ -149,6 +149,35 @@ final class WhereMorphTest extends TestCase
     }
 
     #[Test]
+    public function aStoredIdMatchesInEitherForm(): void
+    {
+        $rows = [
+            ['id' => 1, 'subjectType' => 'campaigns', 'subjectId' => 812],
+            ['id' => 2, 'subjectType' => 'campaigns', 'subjectId' => 'c-812'],
+            ['id' => 3, 'subjectType' => 'campaigns', 'subjectId' => 'c-813'],
+        ];
+        $asked = [];
+        $handler = (new ArrayFilterHandler())->withMorphAdmission(static function (RelationInterface $relation, string $type, array $keys) use (&$asked): array {
+            $asked[] = $keys;
+
+            return \array_values(\array_filter($keys, static fn(mixed $key): bool => $key !== 'c-813'));
+        });
+        $ids = fn(mixed $value): array => \array_column($handler->apply($this->filter(), $rows, $value), 'id');
+
+        self::assertSame([1, 2], $ids(['type' => 'campaigns', 'id' => 'c-812']));
+        self::assertSame([1, 2], $ids(['type' => 'campaigns']));
+        self::assertSame([], $ids(['type' => 'campaigns', 'id' => 'c-813']));
+        self::assertContains([812, 'c-812'], $asked);
+
+        $target = $this->filter()->resolvedTarget();
+        self::assertNotNull($target);
+        self::assertSame([812, 'c-812'], $target->storedForms('campaigns', [812]));
+        self::assertSame(['812'], $target->storedForms('rfps', ['812']));
+        self::assertSame('c-812', $target->wireId('campaigns', 812));
+        self::assertSame('c-812', $target->wireId('campaigns', 'c-812'));
+    }
+
+    #[Test]
     public function theInMemoryHandlerLooksForAMorphToManysMember(): void
     {
         $fields = [

@@ -74,7 +74,7 @@ final class MorphToBuilder extends AbstractRelationBuilder
     /**
      * Reads the target's identifier from two fields of the parent, and declares them so a
      * data layer can compare them in a query: `$type` holds the target's stored type and
-     * `$id` its storage key.
+     * `$id` its storage key or its wire id.
      *
      *     MorphTo::make('subject', ['rfps', 'campaigns'])
      *         ->identifiedByColumns(type: 'subjectType', id: 'subjectId')
