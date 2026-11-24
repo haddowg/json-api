@@ -35,6 +35,7 @@ and builds each definition as you reach it.
 | `relation`, `actionPath`, `actionScope` | The relation, or the action's path and scope, when there is one. |
 | `tags` | The OpenAPI tags. |
 | `security`, `securityLevel` | The security rule your integration declares, and whether it needs nothing (`None`), the caller (`Type`) or the resource (`Entity`). |
+| `additionalGates` | Other rules the operation enforces, each an `AdditionalGate` naming the type and operation whose rule it is, its expression and its level. A to-many related or relationship read carries the collection read rule of each type it relates to. |
 | `requiredScopes` | The effective [OAuth scopes](scopes.md), including the read scopes of what a related read returns. |
 | `safety` | The `OperationSafety` an action declares, `null` otherwise. |
 
@@ -49,10 +50,13 @@ Core never reads a security rule, so the integration provides two things:
 
 - `Catalog\OperationSecuritySourceInterface::securityOf($server, $type, $key)` returns the
   rule guarding one operation as an `OperationSecurity`: the expression as declared
-  (a string, `true`, `false` or `null`) and its `SecurityLevel`.
+  (a string, `true`, `false` or `null`), its `SecurityLevel`, and the `AdditionalGate`s the
+  operation also enforces.
 - `Catalog\SecurityEvaluatorInterface::evaluate($operation, $user)` judges a caller against
   a definition and answers `SecurityVerdict::Allowed`, `Denied` or `Depends`. `Depends`
   means the rule needs the resource, so the answer is known only when the operation runs.
+  It judges each additional gate on its own too, and one that denies the caller makes the
+  answer `Denied` whatever the primary rule needs.
 
 ## Checking scopes
 

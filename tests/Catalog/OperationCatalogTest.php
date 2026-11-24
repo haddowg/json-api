@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Catalog;
 
+use haddowg\JsonApi\Catalog\AdditionalGate;
 use haddowg\JsonApi\Catalog\OperationCatalog;
 use haddowg\JsonApi\Catalog\OperationDefinition;
 use haddowg\JsonApi\Catalog\OperationSecurity;
@@ -34,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(OperationCatalog::class)]
 #[CoversClass(OperationDefinition::class)]
 #[CoversClass(OperationSecurity::class)]
+#[CoversClass(AdditionalGate::class)]
 final class OperationCatalogTest extends TestCase
 {
     #[Test]
@@ -98,6 +100,23 @@ final class OperationCatalogTest extends TestCase
         self::assertSame(['admin'], \array_values(\array_unique($source->servers)));
         self::assertSame('articles', $source->types['update']);
         self::assertNull($source->types['atomic']);
+    }
+
+    #[Test]
+    public function aDefinitionCarriesTheOtherGatesTheSourceReports(): void
+    {
+        $definitions = [];
+        foreach ($this->catalog($this->server(), new RecordingSecuritySource())->forServer('default') as $definition) {
+            $definitions[$definition->operationId] = $definition;
+        }
+
+        $related = $definitions['fetchRelated.articles.author'];
+        self::assertSame("is_granted('EDIT', object)", $related->security);
+        self::assertSame(SecurityLevel::Entity, $related->securityLevel);
+        self::assertEquals([new AdditionalGate('people', OperationKind::FetchCollection, "is_granted('ROLE_ADMIN')")], $related->additionalGates);
+        self::assertSame(SecurityLevel::Type, $related->additionalGates[0]->level);
+        self::assertSame([], $definitions['fetchOne.articles']->additionalGates);
+        self::assertSame([], OperationSecurity::none()->additionalGates);
     }
 
     #[Test]
@@ -260,6 +279,9 @@ final class RecordingSecuritySource implements OperationSecuritySourceInterface
         return $this->rules[$key->name()] = match ($key->kind) {
             OperationKind::FetchOne => new OperationSecurity("is_granted('ROLE_USER')", SecurityLevel::Type),
             OperationKind::Update => new OperationSecurity("is_granted('EDIT', object)", SecurityLevel::Entity),
+            OperationKind::FetchRelated => new OperationSecurity("is_granted('EDIT', object)", SecurityLevel::Entity, [
+                new AdditionalGate('people', OperationKind::FetchCollection, "is_granted('ROLE_ADMIN')"),
+            ]),
             default => OperationSecurity::none(),
         };
     }

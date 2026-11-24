@@ -15,6 +15,10 @@ interface SecurityEvaluatorInterface
      * {@see SecurityVerdict::Depends} when the rule needs the resource the operation
      * acts on, which is the usual answer for a {@see SecurityLevel::Entity} rule.
      *
+     * Each of the operation's {@see OperationDefinition::$additionalGates} is judged on its
+     * own as well: one that denies the caller makes the operation
+     * {@see SecurityVerdict::Denied}, even when the primary rule needs the resource.
+     *
      * @param object|null $user the caller, or `null` for an anonymous one
      */
     public function evaluate(OperationDefinition $operation, ?object $user = null): SecurityVerdict;

@@ -315,6 +315,10 @@ _Avoid_: operationId (that also names the type)
 The list of operations a server exposes and the scopes each needs, as offered to clients.
 _Avoid_: capabilities endpoint
 
+**Additional gate**:
+A rule an operation enforces besides its primary one, belonging to another type's operation,
+such as each related type's collection read on a to-many related read. Any one can refuse.
+
 **Scope table**:
 The resolved map from each **Operation key** to the OAuth scopes it requires, shared by
 enforcement and the OpenAPI projection.
