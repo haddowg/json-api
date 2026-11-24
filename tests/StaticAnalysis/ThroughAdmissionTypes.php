@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Tests\StaticAnalysis;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\Filter\InMemory\ArrayFilterHandler;
 use haddowg\JsonApi\Resource\Sort\InMemory\ArraySortHandler;
+use haddowg\JsonApi\Resource\Through\RelationPath;
 
 /**
  * Never executed. phpstan-hooks.neon analyses it with PHPStan's default settings, as a
@@ -25,6 +26,18 @@ final class ThroughAdmissionTypes
             ->withRowAdmission(static fn(string $path, array $rows, ?RelationInterface $relation = null): array => $relation?->name() === 'hidden' ? [] : $rows)
             ->withMorphAdmission(static fn(RelationInterface $relation, string $type, array $keys): array => $type === 'hidden' ? [] : $keys)
             ->withRelationReader(static fn(mixed $row, string $path, ?RelationInterface $relation): ?array => $path === 'notes' ? [] : null);
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    public static function reach(RelationPath $path, mixed $row): array
+    {
+        return $path->reach(
+            $row,
+            static fn(string $walked, array $rows): array => $rows,
+            static fn(mixed $current, string $walked, ?RelationInterface $relation): ?iterable => $relation?->name() === 'notes' ? new \ArrayIterator([]) : null,
+        );
     }
 
     public static function sorts(ArraySortHandler $handler): ArraySortHandler
