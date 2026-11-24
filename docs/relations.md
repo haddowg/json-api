@@ -505,7 +505,9 @@ column holding the ids of several kinds of target often keeps the wire form. The
 related read, an include and a `WhereMorph` accept either: `StoredIdForms::wireId()` turns a
 stored id in either form into its wire id, and `MorphTarget::storedForms()` lists the forms
 a filter compares a column against. Link rows declared with `identifiedByRows()` work the
-same way.
+same way. A stored id counts as a wire id when the encoder decodes it and encodes the result
+back to the same id, so with an encoder whose storage keys also survive that round trip,
+store one form consistently.
 
 The build refuses these declarations:
 
