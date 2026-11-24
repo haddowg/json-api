@@ -214,7 +214,10 @@ sketch:
   bounds declared for its context, beside the shared relationship object in an `allOf`,
   since that object is the read shape too. The `POST` and `DELETE` that add and remove
   members carry a delta, so they take none. A request example whose one member falls
-  outside the bounds is left out.
+  outside the bounds is left out. A relation required on create is listed in the create
+  request's and the atomic `add`'s `relationships.required`, and `relationships` is then
+  required of the resource object too. A required to-many takes `minItems: 1` in each
+  write it is required in, as a required list attribute does.
   Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to

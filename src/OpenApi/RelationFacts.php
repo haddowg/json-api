@@ -20,6 +20,7 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
+use haddowg\JsonApi\Resource\Constraint\Required;
 use haddowg\JsonApi\Resource\Field\ConditionalFieldInterface;
 use haddowg\JsonApi\Resource\Field\ConditionalRelationInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
@@ -205,10 +206,27 @@ final class RelationFacts
     }
 
     /**
+     * Whether every write in the context must send the relation: an unconditional
+     * {@see Required} applying to it. A `Required` inside a `When` applies to some
+     * requests only, so it does not count, as for an attribute.
+     */
+    public static function isRequired(TypeMetadataInterface $type, RelationMetadataInterface $relation, bool $creating): bool
+    {
+        foreach (self::field($type, $relation)?->constraints() ?? [] as $constraint) {
+            if ($constraint instanceof Required && $constraint->context()->appliesTo($creating)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The `minItems()` / `maxItems()` a to-many relation's field declares for a create or
      * update, read from the relation field of the same name among the type's fields. Only
      * a write setting the whole membership takes them: an addition or a removal carries a
-     * delta.
+     * delta. A relation required in the context takes at least one member, as a required
+     * list attribute does.
      *
      * @return array{min: int|null, max: int|null}
      */
@@ -227,7 +245,9 @@ final class RelationFacts
                 if (!$constraint->context()->appliesTo($creating)) {
                     continue;
                 }
-                if ($constraint instanceof MinItems) {
+                if ($constraint instanceof Required) {
+                    $bounds['min'] = \max($bounds['min'] ?? 0, 1);
+                } elseif ($constraint instanceof MinItems) {
                     $bounds['min'] = \max($bounds['min'] ?? 0, $constraint->value);
                 } elseif ($constraint instanceof MaxItems) {
                     $bounds['max'] = $bounds['max'] === null ? $constraint->value : \min($bounds['max'], $constraint->value);

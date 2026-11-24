@@ -202,8 +202,12 @@ and so on. `Nullable` widens a field's `type` to allow `null`; `Each` compiles t
 `items`; a structured [`Map`](fields.md)'s children compile recursively into nested
 `properties`. Composition constraints map too: `Sequentially` merges its inner
 schemas into the field, and `AtLeastOneOf` becomes an `anyOf`. A relationship field
-constrains only the linkage `type` (to its declared related types); cardinality is
-left to the base schema. `date`/`time`/`date-time` are the one conditional entry in
+constrains the linkage `type` (to its declared related types) and a to-many's
+`minItems()`/`maxItems()`; cardinality is left to the base schema. A required relation
+is listed in `relationships.required` on a create, with `relationships` in
+`data.required`, and where it is required its linkage may not be empty: a to-one
+refuses `null` unless it is also nullable, and a to-many takes `minItems: 1`. An
+optional to-one accepts `null`. `date`/`time`/`date-time` are the one conditional entry in
 that list: each is an RFC 3339 production, so a [`DateTime`](field-types.md#datetime)
 field gets its keyword only when its configured serialization format really writes that
 shape — otherwise the compiled schema would reject the bodies the hydrator accepts.

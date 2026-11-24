@@ -37,7 +37,8 @@ use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
  * The output is exactly the shape {@see DocumentValidator::validateRequest()}'s
  * `$additionalSchemas` list takes: it `allOf`-composes with the base/request
  * root, so it only constrains `data.attributes` / `data.relationships` (and the
- * per-context `required` arrays). The attributes object and each `Map` it holds
+ * per-context `required` arrays, `data`'s own naming `relationships` when a create must
+ * send a relation). The attributes object and each `Map` it holds
  * are closed: a member the resource does not declare is rejected. It does **not** restate base members or touch
  * `unevaluatedProperties` (the composite owns that).
  *
@@ -87,7 +88,7 @@ final class SchemaCompiler
             }
 
             if ($field instanceof \haddowg\JsonApi\Resource\Field\RelationInterface) {
-                $relationshipProperties[$field->name()] = $this->relationshipSchema($field, $creating);
+                $relationshipProperties[$field->name()] = $this->relationshipSchema($field, $creating, $this->isRequired($field, $creating));
                 if ($this->isRequired($field, $creating)) {
                     $relationshipRequired[] = $field->name();
                 }
@@ -120,7 +121,12 @@ final class SchemaCompiler
             $dataProperties['relationships'] = $relationships;
         }
 
-        return ['type' => 'object', 'properties' => ['data' => ['type' => 'object', 'properties' => $dataProperties]]];
+        $data = ['type' => 'object', 'properties' => $dataProperties];
+        if ($creating && $relationshipRequired !== []) {
+            $data['required'] = ['relationships'];
+        }
+
+        return ['type' => 'object', 'properties' => ['data' => $data]];
     }
 
     /**
@@ -163,11 +169,13 @@ final class SchemaCompiler
     /**
      * @return array<string, mixed>
      */
-    private function relationshipSchema(\haddowg\JsonApi\Resource\Field\RelationInterface $relation, bool $creating): array
+    private function relationshipSchema(\haddowg\JsonApi\Resource\Field\RelationInterface $relation, bool $creating, bool $required): array
     {
         // A JSON:API relationship object: { "data": <linkage> }. Constrain the
         // linkage type(s) and a to-many's item bounds; cardinality (object vs array)
         // is governed by the base schema, which already validates relationship shape.
+        // A required relation may not be sent empty: a to-one takes `null` only when it
+        // is nullable too, and a to-many takes at least one member.
         $identifier = ['type' => 'object'];
         $types = $relation->relatedTypes();
         if ($types !== []) {
@@ -175,6 +183,8 @@ final class SchemaCompiler
         }
 
         if (!$relation->isToMany()) {
+            $identifier = $required ? $this->allowNull($identifier, $relation, $creating) : ['type' => ['object', 'null']] + $identifier;
+
             return ['type' => 'object', 'properties' => ['data' => $identifier]];
         }
 
@@ -183,6 +193,10 @@ final class SchemaCompiler
             if (($constraint instanceof MinItems || $constraint instanceof MaxItems) && $constraint->context()->appliesTo($creating)) {
                 $dataSchema = $this->applyConstraint($dataSchema, $constraint, $creating);
             }
+        }
+        if ($required) {
+            $min = $dataSchema['minItems'] ?? 0;
+            $dataSchema['minItems'] = \max(\is_int($min) ? $min : 0, 1);
         }
 
         return ['type' => 'object', 'properties' => ['data' => $dataSchema]];

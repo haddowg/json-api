@@ -1920,8 +1920,8 @@ final class OpenApiProjector
             ->withProperty('attributes', $type->hasFields()
                 ? Schema::ref('#/components/schemas/' . $base . 'CreateAttributes')
                 : Schema::ofType('object'))
-            ->withProperty('relationships', $this->writeRelationshipsProperty($type, creating: true, atomic: true) ?? Schema::ofType('object'))
-            ->withRequired(['type'])
+            ->withProperty('relationships', $relationships = $this->writeRelationshipsProperty($type, creating: true, atomic: true) ?? Schema::ofType('object'))
+            ->withRequired(['type', ...$this->requiredCreateMembers($relationships)])
             ->withDescription('The ' . TypeNoun::of($type)->singular . ' resource object an `add` operation creates.');
         $resource = $this->withWrittenResourceMeta($resource, $type, OperationType::Create, atomic: true);
 
@@ -2198,6 +2198,7 @@ final class OpenApiProjector
     {
         $base = $this->componentBase($type->type());
         $properties = [];
+        $required = [];
         foreach ($type->relations() as $relation) {
             if ($creating ? RelationFacts::isReadOnlyOnCreate($type, $relation) : !$relation->allowsReplace()) {
                 continue;
@@ -2223,13 +2224,16 @@ final class OpenApiProjector
                 $property = $property->withDeprecated();
             }
             $properties[$relation->name()] = $property;
+            if ($creating && RelationFacts::isRequired($type, $relation, true)) {
+                $required[] = $relation->name();
+            }
         }
 
         if ($properties === []) {
             return null;
         }
 
-        return Schema::ofType('object')->withProperties($properties);
+        return Schema::ofType('object')->withProperties($properties)->withRequired($required);
     }
 
     /**
@@ -2309,7 +2313,7 @@ final class OpenApiProjector
         if ($relationships !== null) {
             $resource = $resource->withProperty('relationships', $relationships);
         }
-        $resource = $resource->withRequired($required);
+        $resource = $resource->withRequired([...$required, ...$this->requiredCreateMembers($relationships)]);
         $resource = $this->withWrittenResourceMeta($resource, $type, OperationType::Create);
 
         return $this->writeDocumentEnvelope($resource);
@@ -2354,6 +2358,17 @@ final class OpenApiProjector
         return $write === OperationType::Create && TypedRequestMeta::hasRequired($meta, $this->schemaProjector)
             ? $resource->withRequired([...(\is_array($required) ? \array_values(\array_filter($required, \is_string(...))) : []), 'meta'])
             : $resource;
+    }
+
+    /**
+     * The members of a create's resource object that every create must send:
+     * `relationships` when a relation is required on create.
+     *
+     * @return list<string>
+     */
+    private function requiredCreateMembers(?Schema $relationships): array
+    {
+        return ($relationships?->get('required') ?? []) !== [] ? ['relationships'] : [];
     }
 
     /**
