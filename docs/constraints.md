@@ -95,6 +95,12 @@ before-update hook.
 `type` union in JSON Schema). It is **independent of presence** — a field can be
 required *and* nullable (must be supplied, but `null` is an acceptable value).
 
+A relation takes `Required` the same way. A create must send its relationship, and a
+write sending it may not send an empty linkage: a `null` to-one, unless the relation is
+also `nullable()`, or a to-many with no members. A full replacement through the
+relationship endpoint is an update, so a relation required on update can't be emptied
+there either. The framework adapters enforce this before hydration.
+
 ## The constraint vocabulary
 
 Every rule below is a value object under
