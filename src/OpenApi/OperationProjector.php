@@ -1056,9 +1056,9 @@ final class OperationProjector
             return $body;
         }
 
-        $bounds = RelationFacts::withItemBounds(Schema::create(), $type, $relation, creating: false);
+        $narrowing = RelationFacts::writeLinkageNarrowing($type, $relation, creating: false);
 
-        return $bounds->toArray() === [] ? $body : Schema::create()->withAllOf([$body, Schema::create()->withProperty('data', $bounds)]);
+        return $narrowing->toArray() === [] ? $body : Schema::create()->withAllOf([$body, Schema::create()->withProperty('data', $narrowing)]);
     }
 
     /**

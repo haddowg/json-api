@@ -739,7 +739,9 @@ final class ContractWitnessServer
                 Str::make('name')->required()->example('Ada Lovelace')->build(),
                 // No example, so every people operation reports it missing and has none.
                 Str::make('role')->enum(Status::class)->build(),
-                BelongsTo::make('company', 'companies')->build(),
+                // Every person works for a company: a create must name it and no write may
+                // clear it.
+                BelongsTo::make('company', 'companies')->required()->build(),
             ],
             // The company is an owning foreign key the data layer sets without loading,
             // so its linkage never misses and detaching it is never refused.
@@ -767,7 +769,8 @@ final class ContractWitnessServer
             fields: [
                 Id::make()->example('tag-1')->build(),
                 Str::make('label')->required()->example('php')->build(),
-                HasMany::make('articles', 'articles')->cannotRemove(static fn(mixed $model, JsonApiRequestInterface $request): bool => false)->build(),
+                // A new tag names at least one article.
+                HasMany::make('articles', 'articles')->requiredOnCreate()->cannotRemove(static fn(mixed $model, JsonApiRequestInterface $request): bool => false)->build(),
             ],
             // A removal some callers may not make, and no data-layer refusal: the
             // relationship's replacement and addition are never refused.

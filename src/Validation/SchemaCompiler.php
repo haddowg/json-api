@@ -37,8 +37,8 @@ use haddowg\JsonApi\Resource\Field\ProvidesFieldSchema;
  * The output is exactly the shape {@see DocumentValidator::validateRequest()}'s
  * `$additionalSchemas` list takes: it `allOf`-composes with the base/request
  * root, so it only constrains `data.attributes` / `data.relationships` (and the
- * per-context `required` arrays, `data`'s own naming `relationships` when a create must
- * send a relation). The attributes object and each `Map` it holds
+ * per-context `required` arrays, `data`'s own naming `attributes` and `relationships`
+ * when a create must send an attribute or a relation). The attributes object and each `Map` it holds
  * are closed: a member the resource does not declare is rejected. It does **not** restate base members or touch
  * `unevaluatedProperties` (the composite owns that).
  *
@@ -122,8 +122,15 @@ final class SchemaCompiler
         }
 
         $data = ['type' => 'object', 'properties' => $dataProperties];
+        $dataRequired = [];
+        if ($creating && $attributeRequired !== []) {
+            $dataRequired[] = 'attributes';
+        }
         if ($creating && $relationshipRequired !== []) {
-            $data['required'] = ['relationships'];
+            $dataRequired[] = 'relationships';
+        }
+        if ($dataRequired !== []) {
+            $data['required'] = $dataRequired;
         }
 
         return ['type' => 'object', 'properties' => ['data' => $data]];

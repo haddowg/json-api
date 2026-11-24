@@ -141,6 +141,8 @@ sketch:
   (`<Type>Attributes`, `<Type>CreateAttributes`, `<Type>UpdateAttributes`). A read-only
   field is `readOnly: true`; a create-required one appears in the create shape's
   `required` but not the update shape's (an absent update member means "no change").
+  When a create must send an attribute, the create request and the atomic `add` also
+  require the resource object's `attributes` member.
   The create/update components are emitted **only** when the type's operation allow-list
   exposes that write, so a read-only type dangles no write components. A type a custom
   action takes as its JSON:API request document is the exception: the action reads it in
@@ -217,7 +219,10 @@ sketch:
   outside the bounds is left out. A relation required on create is listed in the create
   request's and the atomic `add`'s `relationships.required`, and `relationships` is then
   required of the resource object too. A required to-many takes `minItems: 1` in each
-  write it is required in, as a required list attribute does.
+  write it is required in, as a required list attribute does, and a required to-one
+  refuses `null` there unless it is also `nullable()`. Where the write references the
+  shared relationship object, the narrowing sits beside the reference in an `allOf`,
+  with the reference first.
   Endpoints are emitted per relation, gated by
   its endpoint-exposure and mutation flags — and a mutating verb on
   `/{type}/{id}/relationships/{rel}` additionally needs the *parent* type's allow-list to

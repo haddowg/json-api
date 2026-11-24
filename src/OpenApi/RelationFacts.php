@@ -20,7 +20,9 @@ use haddowg\JsonApi\OpenApi\Metadata\ServerMetadataInterface;
 use haddowg\JsonApi\OpenApi\Metadata\TypeMetadataInterface;
 use haddowg\JsonApi\Resource\Constraint\MaxItems;
 use haddowg\JsonApi\Resource\Constraint\MinItems;
+use haddowg\JsonApi\Resource\Constraint\Nullable;
 use haddowg\JsonApi\Resource\Constraint\Required;
+use haddowg\JsonApi\Resource\Constraint\When;
 use haddowg\JsonApi\Resource\Field\ConditionalFieldInterface;
 use haddowg\JsonApi\Resource\Field\ConditionalRelationInterface;
 use haddowg\JsonApi\Resource\Field\FieldInterface;
@@ -256,6 +258,50 @@ final class RelationFacts
         }
 
         return $bounds;
+    }
+
+    /**
+     * Whether a write in the context may not send the relation's to-one linkage as `null`:
+     * the relation is required there and declares no `nullable()` that could apply, even
+     * inside a `When`, which admits `null` for some requests.
+     */
+    public static function refusesNull(TypeMetadataInterface $type, RelationMetadataInterface $relation, bool $creating): bool
+    {
+        if ($relation->isToMany() || !self::isRequired($type, $relation, $creating)) {
+            return false;
+        }
+
+        foreach (self::field($type, $relation)?->constraints() ?? [] as $constraint) {
+            if (!$constraint->context()->appliesTo($creating)) {
+                continue;
+            }
+            if ($constraint instanceof Nullable) {
+                return false;
+            }
+            if ($constraint instanceof When) {
+                foreach ($constraint->constraints as $inner) {
+                    if ($inner instanceof Nullable && $inner->context()->appliesTo($creating)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * What a write in the context narrows the relation's shared linkage `data` to, beside
+     * the relationship object it references: a to-many's {@see itemBounds()}, or `object`
+     * for a to-one that {@see refusesNull()}. Empty when the write takes the shared shape.
+     */
+    public static function writeLinkageNarrowing(TypeMetadataInterface $type, RelationMetadataInterface $relation, bool $creating): Schema
+    {
+        if (self::refusesNull($type, $relation, $creating)) {
+            return Schema::ofType('object');
+        }
+
+        return self::withItemBounds(Schema::create(), $type, $relation, $creating);
     }
 
     /**

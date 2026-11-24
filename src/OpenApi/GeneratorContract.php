@@ -90,7 +90,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 45;
+    public const CONTRACT = 46;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -139,8 +139,13 @@ final class GeneratorContract
      * Contract 45 did again, giving a comparison or list filter's value over a `DateTime`,
      * `Date` or `Time` field, on the type or reached through relations, the RFC 3339
      * `format` that field writes.
+     * Contract 46 did again, requiring a create's `attributes` when an attribute is required
+     * on create and its `relationships` when a relation is, listing each such relation in
+     * `relationships.required`, giving a required to-many's write linkage `minItems: 1` and
+     * refusing `null` for a required to-one's in each write where the relation is required,
+     * the relationship object then narrowed beside its reference in an `allOf`.
      */
-    public const BASELINE = 45;
+    public const BASELINE = 46;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API
