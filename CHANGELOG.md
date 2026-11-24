@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.24.1](https://github.com/haddowg/json-api/compare/v2.24.0...v2.24.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* list the relationships a create must send in its request schemas ([#433](https://github.com/haddowg/json-api/issues/433)) ([f563ffa](https://github.com/haddowg/json-api/commit/f563ffa521b6564c033c89c418e01df4459fb3e9))
+* require a create's attributes and refuse a null required to-one ([#435](https://github.com/haddowg/json-api/issues/435)) ([a51766a](https://github.com/haddowg/json-api/commit/a51766ac49529ce0cddc6d986e4d8829c2f20337))
+
 ## [2.24.0](https://github.com/haddowg/json-api/compare/v2.23.0...v2.24.0) (2026-11-23)
 
 
