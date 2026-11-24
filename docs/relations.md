@@ -605,6 +605,10 @@ Eloquent attribute or relation, never a database column, so a data layer can que
 rows itself. Core reads them in memory as the relation's value on the parent, which
 `storedAs()` or `extractUsing()` points at the parent's collection of rows.
 
+The `owner` field must identify exactly one owning type. A data layer reads a parent's
+rows by that field alone, with no owner type beside it, so a link table shared by several
+owner types, whose owner ids may collide, isn't supported yet.
+
 The stored type is the JSON:API type unless you pass `typeMap`, from stored value to
 JSON:API type, as an Eloquent morph map stores `agency` for `agencies`:
 
