@@ -61,6 +61,21 @@ final class MorphToManyLinkRowFieldsTest extends TestCase
     }
 
     #[Test]
+    public function anIdHeldAsAValueObjectIsItsStringForm(): void
+    {
+        $id = new class implements \Stringable {
+            public function __toString(): string
+            {
+                return '01JD8X4M3T5Q7R9V2W4Y6Z8A0B';
+            }
+        };
+        $member = self::relation()->linkRowFields()?->member((object) ['kind' => 'agency', 'key' => $id, 'position' => 1]);
+
+        self::assertNotNull($member);
+        self::assertSame('01JD8X4M3T5Q7R9V2W4Y6Z8A0B', $member->id);
+    }
+
+    #[Test]
     public function withoutAMapTheStoredTypeIsTheJsonApiType(): void
     {
         $relation = MorphToMany::make('companies', ['agencies', 'advertisers'])

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Serializer;
 
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Field\FieldInterface;
 use haddowg\JsonApi\Resource\Field\ForeignKey;
 use haddowg\JsonApi\Resource\Field\Id;
+use haddowg\JsonApi\Resource\Field\MorphTo;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 
@@ -17,8 +19,11 @@ use haddowg\JsonApi\Resource\SerializerResolverInterface;
  *
  * A relation declared with a foreign key (`HasMany::make('notes', 'notes', 'author')`)
  * must name a member of its related type that holds the parent's id: a stored field, or
- * a to-one relation whose related type is the parent's type. A field's values can't be
- * checked against the parent's type, so a field passes once it exists and is stored. A
+ * a to-one relation whose related type is the parent's type, which may be a `MorphTo`
+ * declared with `identifiedByColumns()`. A field's values can't be checked against the
+ * parent's type, so a field passes once it exists and is stored, unless it is one of the
+ * fields such a `MorphTo` keeps its target in: its id field holds the ids of several
+ * types, so the relation must name the `MorphTo` to compare the type too. A
  * related type the resolver doesn't serve through an {@see AbstractResource} declares
  * no members to check, and passes.
  *
@@ -34,7 +39,8 @@ final class RelationForeignKeyValidator
      * is a no-op.
      *
      * @throws \LogicException when a foreign key names no stored field or to-one relation
-     *                         of the related type, or a to-one that relates to another type
+     *                         of the related type, a to-one that relates to another type, or
+     *                         a field a `MorphTo` keeps its target in
      */
     public function validate(string $type, SerializerInterface $serializer): void
     {
@@ -47,6 +53,27 @@ final class RelationForeignKeyValidator
                 $this->validateRelation($type, $field);
             }
         }
+    }
+
+    /**
+     * The name of the `MorphTo` of `$related` declared with `identifiedByColumns()` whose
+     * id or type field is the stored field `$member`, or `null` when there is none.
+     */
+    private static function morphHoldingId(AbstractResource $related, FieldInterface $member): ?string
+    {
+        if ($member instanceof RelationInterface) {
+            return null;
+        }
+
+        $stored = [$member->name(), $member->column()];
+        foreach ($related->allFields() as $field) {
+            $columns = $field instanceof MorphTo ? $field->identifierColumns() : null;
+            if ($columns !== null && (\in_array($columns->id, $stored, true) || \in_array($columns->type, $stored, true))) {
+                return $field->name();
+            }
+        }
+
+        return null;
     }
 
     private function validateRelation(string $type, RelationInterface $relation): void
@@ -82,6 +109,10 @@ final class RelationForeignKeyValidator
                 $type,
             ),
             !$member instanceof RelationInterface && $member->column() === null => 'it is computed, not stored',
+            ($morph = self::morphHoldingId($related, $member)) !== null => \sprintf(
+                'it is a field the polymorphic relation "%1$s" stores its target in, whose ids may belong to any of several types, so rows pointing at another type with the same id would be read too. Name the MorphTo "%1$s" as the foreign key instead',
+                $morph,
+            ),
             default => null,
         };
 

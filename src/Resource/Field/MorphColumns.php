@@ -65,6 +65,18 @@ final readonly class MorphColumns
     }
 
     /**
+     * The stored value a write keeps in the type field for the JSON:API `$type`: the
+     * first `$typeMap` key mapping to it, or the type itself when no map is declared.
+     *
+     * @throws \LogicException when `$type` is not a declared type
+     */
+    public function storedValueFor(string $type): string
+    {
+        return $this->storedValues($type)[0]
+            ?? throw new \LogicException(\sprintf('The type field "%s" has no stored value for type "%s", which the relation does not declare. Declared types: %s.', $this->type, $type, \implode(', ', $this->types)));
+    }
+
+    /**
      * The `[type, id]` the parent stores, with the stored type mapped to its JSON:API
      * type, or `null` when the relation is empty: no stored type, or no id.
      *
@@ -79,6 +91,10 @@ final readonly class MorphColumns
             $stored = $stored->value;
         }
         $id = Accessor::get($parent, $this->id);
+        // A key held as a value object, such as a Uuid, is its string form.
+        if ($id instanceof \Stringable) {
+            $id = (string) $id;
+        }
         if ((!\is_string($stored) && !\is_int($stored)) || $stored === '' || (!\is_int($id) && (!\is_string($id) || $id === ''))) {
             return null;
         }

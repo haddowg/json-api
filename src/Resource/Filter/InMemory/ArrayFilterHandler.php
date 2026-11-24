@@ -587,7 +587,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $selection = $filter->selection($value);
         $target = $filter->resolvedTarget();
         $relation = $target?->relation;
-        $key = static fn(mixed $id): string => \is_scalar($id) ? (string) $id : '';
+        $key = static fn(mixed $id): string => \is_scalar($id) || $id instanceof \Stringable ? (string) $id : '';
         // A stored id may be the target's storage key or its wire id.
         if ($selection->ids !== null && $target !== null) {
             $selection = new MorphSelection($selection->type, $target->storedForms($selection->type, $selection->ids));

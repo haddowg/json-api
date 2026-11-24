@@ -237,7 +237,7 @@ final readonly class InMemoryLinkRows implements LinkRowQueryInterface, LinkRowK
         $a = $a instanceof \BackedEnum ? $a->value : $a;
         $b = $b instanceof \BackedEnum ? $b->value : $b;
 
-        return \strcmp(\is_scalar($a) ? (string) $a : '', \is_scalar($b) ? (string) $b : '');
+        return \strcmp(\is_scalar($a) || $a instanceof \Stringable ? (string) $a : '', \is_scalar($b) || $b instanceof \Stringable ? (string) $b : '');
     }
 
     /**

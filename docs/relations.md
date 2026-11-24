@@ -152,7 +152,8 @@ The foreign key must name a member of the related type that holds the parent's i
 
 - a stored field, compared with the parent's id as storage holds it, that is the
   parent's wire id decoded through its [id encoder](ids.md) when it declares one;
-- or a to-one relation whose related type is the parent's type.
+- or a to-one relation whose related type is the parent's type, which may be a
+  [`MorphTo` declared with `identifiedByColumns()`](#a-foreign-key-through-a-polymorphic-relation).
 
 `RelationForeignKeyValidator` checks that at warm-up, and a host runs it once per
 registered resource. A `BelongsToMany` takes no foreign key, since its members live in
@@ -162,6 +163,33 @@ reaches the members, not part of the API.
 A data layer resolves the name with `ForeignKey::of($relation, $resolver)`, which
 returns the member's storage `column` and whether it is a to-one relation, and reads
 each parent's key with `ForeignKey::parentKey($parentSerializer, $parent)`.
+
+### A foreign key through a polymorphic relation
+
+When the related rows point back at their parent through a `MorphTo` that keeps its target
+in two fields, name the `MorphTo` as the foreign key:
+
+```php
+// NoteResource
+MorphTo::make('owner', ['posts', 'videos'])
+    ->identifiedByColumns(type: 'ownerType', id: 'ownerId'),
+
+// PostResource
+HasMany::make('notes', 'notes', 'owner'),
+```
+
+A post's notes are then the notes whose `ownerType` holds a stored value naming `posts`
+and whose `ownerId` holds one of the posts' keys, on every read the foreign key decides.
+A write sets both fields on the rows that join, the type field to
+`MorphColumns::storedValueFor()` the parent's type, and clears both on the rows that
+leave. A data layer gets the two fields from `ForeignKey::morphColumns()`, which is `null`
+for any other foreign key, and the stored values naming the parent's type from
+`MorphColumns::storedValues()`.
+
+Naming the id field itself, `HasMany::make('notes', 'notes', 'ownerId')`, is refused at
+warm-up, as is naming the type field: the id field holds the ids of posts and videos
+alike, so the relation would read a video's notes as a post's whenever their ids match.
+Name the `MorphTo` instead.
 
 A relationship write of such a relation is a write of the related rows, never of the
 parent. A replace sets the foreign key on the rows the linkage names and clears it on the
@@ -492,8 +520,9 @@ morph map does:
 ]),
 ```
 
-A stored type the map doesn't name, or that names no declared type, throws a
-`\LogicException`. Because the fields are declared, a data layer can compare them in a
+An id held as a `\Stringable` value object, such as a Symfony `Uuid` hydrated from a
+`uuid` column, is its string form. A stored type the map doesn't name, or that names no
+declared type, throws a `\LogicException`. Because the fields are declared, a data layer can compare them in a
 query, which a [`WhereMorph`](filters.md#filtering-by-a-polymorphic-relation-wheremorph)
 filter needs: `MorphTo::identifierColumns()` returns them as a `MorphColumns`, or `null`
 for a relation identified by a closure. Like `identifiedBy()` it changes reads only.
@@ -505,7 +534,7 @@ column holding the ids of several kinds of target often keeps the wire form. The
 related read, an include and a `WhereMorph` accept either: `StoredIdForms::wireId()` turns a
 stored id in either form into its wire id, and `MorphTarget::storedForms()` lists the forms
 a filter compares a column against. Link rows declared with `identifiedByRows()` work the
-same way. A stored id counts as a wire id when the encoder decodes it and encodes the result
+same way, and a link row's id held as a value object is its string form too. A stored id counts as a wire id when the encoder decodes it and encodes the result
 back to the same id, so with an encoder whose storage keys also survive that round trip,
 store one form consistently.
 
@@ -522,6 +551,10 @@ The build refuses these declarations:
 Keep `identifiedBy()` for storage two fields can't describe. A data layer can't compare a
 closure in a query, so a `WhereMorph` needs `identifiedByColumns()` on the Doctrine and
 in-memory providers.
+
+The same two fields serve a `HasMany` or `HasOne` on each target type that reads the
+target's rows back, named by the `MorphTo`: see
+[a foreign key through a polymorphic relation](#a-foreign-key-through-a-polymorphic-relation).
 
 A data layer loads included and related targets from the pairs, one query per type.
 `MorphTo::storedIdentifiers($parents, $request)` returns the stored ids of a page of

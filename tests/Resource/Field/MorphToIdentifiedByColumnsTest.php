@@ -46,6 +46,33 @@ final class MorphToIdentifiedByColumnsTest extends TestCase
     }
 
     #[Test]
+    public function anIdHeldAsAValueObjectIsItsStringForm(): void
+    {
+        $relation = MorphTo::make('subject', ['rfps'])->identifiedByColumns('subjectType', 'subjectId')->build();
+        $id = new class implements \Stringable {
+            public function __toString(): string
+            {
+                return '0193d1c2-7a4e-7c55-9a8e-5f0c3b2d1e00';
+            }
+        };
+        $item = (object) ['subjectType' => 'rfps', 'subjectId' => $id];
+
+        self::assertSame(['rfps', '0193d1c2-7a4e-7c55-9a8e-5f0c3b2d1e00'], $relation->storedIdentifier($item, self::request()));
+    }
+
+    #[Test]
+    public function aWriteStoresTheFirstValueNamingAType(): void
+    {
+        $mapped = new MorphColumns('subjectType', 'subjectId', ['rfps', 'campaigns'], ['App\\Rfp' => 'rfps', 'App\\Campaign' => 'campaigns']);
+
+        self::assertSame('App\\Campaign', $mapped->storedValueFor('campaigns'));
+        self::assertSame('rfps', (new MorphColumns('subjectType', 'subjectId', ['rfps']))->storedValueFor('rfps'));
+
+        $this->expectException(\LogicException::class);
+        $mapped->storedValueFor('leads');
+    }
+
+    #[Test]
     public function aStoredTypeNamingNoDeclaredTypeIsALogicException(): void
     {
         $relation = MorphTo::make('subject', ['rfps'])->identifiedByColumns('subjectType', 'subjectId')->build();
