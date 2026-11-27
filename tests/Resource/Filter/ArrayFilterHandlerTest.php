@@ -148,6 +148,31 @@ final class ArrayFilterHandlerTest extends TestCase
     }
 
     #[Test]
+    public function anIdFilterMatchesAUuidInEitherCase(): void
+    {
+        $upper = '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA';
+        $lower = '9b1d2c3e-4f50-4a6b-8c7d-8e9f0a1b2c3d';
+        $rows = [['id' => $upper], ['id' => $lower], ['id' => 'Plain']];
+        $handler = new ArrayFilterHandler();
+
+        self::assertSame([$upper], $this->ids($handler->apply(WhereIdIn::make()->build(), $rows, \strtolower($upper))));
+        self::assertSame([$lower], $this->ids($handler->apply(WhereIdIn::make()->build(), $rows, \strtoupper($lower))));
+        self::assertSame([$lower, 'Plain'], $this->ids($handler->apply(WhereIdNotIn::make()->build(), $rows, \strtolower($upper))));
+        self::assertSame([$upper, 'Plain'], $this->ids($handler->apply(WhereIdNotIn::make()->build(), $rows, \strtoupper($lower))));
+    }
+
+    #[Test]
+    public function anIdFilterComparesAnIdThatIsNoUuidExactly(): void
+    {
+        $rows = [['id' => 'Plain'], ['id' => '7']];
+        $handler = new ArrayFilterHandler();
+
+        self::assertSame([], $this->ids($handler->apply(WhereIdIn::make()->build(), $rows, 'plain')));
+        self::assertSame(['Plain'], $this->ids($handler->apply(WhereIdIn::make()->build(), $rows, 'Plain')));
+        self::assertSame(['7'], $this->ids($handler->apply(WhereIdIn::make()->build(), $rows, [7])));
+    }
+
+    #[Test]
     public function whereNull(): void
     {
         $result = (new ArrayFilterHandler())->apply(WhereNull::make('deletedAt'), $this->data(), '1');

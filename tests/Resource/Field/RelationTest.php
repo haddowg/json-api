@@ -408,6 +408,23 @@ final class RelationTest extends TestCase
     }
 
     #[Test]
+    public function applyToManyAddAndRemoveMatchAUuidInEitherCase(): void
+    {
+        $relation = HasMany::make('tags', 'tags')->storedAs('tag_ids')->build();
+        $upper = '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA';
+        $lower = \strtolower($upper);
+        $stored = ['tag_ids' => [$upper, 'Plain']];
+
+        $added = $relation->applyToMany($stored, new InputToMany([new ResourceIdentifier('tags', $lower), new ResourceIdentifier('tags', 'plain')]), \haddowg\JsonApi\Resource\Field\Mode::Add);
+        self::assertIsArray($added);
+        self::assertSame([$upper, 'Plain', 'plain'], $added['tag_ids']);
+
+        $removed = $relation->applyToMany($stored, new InputToMany([new ResourceIdentifier('tags', $lower), new ResourceIdentifier('tags', 'plain')]), \haddowg\JsonApi\Resource\Field\Mode::Remove);
+        self::assertIsArray($removed);
+        self::assertSame(['Plain'], $removed['tag_ids']);
+    }
+
+    #[Test]
     public function applyToManyRemoveSubtractsIds(): void
     {
         $relation = HasMany::make('tags', 'tags')->storedAs('tag_ids')->build();

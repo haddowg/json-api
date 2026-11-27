@@ -152,9 +152,12 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     }
 
     /**
+     * `$ids` says the filter compares ids, as an id filter or a filter reaching through to
+     * an id does, so a uuid-like id matches in either case.
+     *
      * @return \Closure(mixed): bool
      */
-    private function predicate(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, mixed $value): \Closure
+    private function predicate(\haddowg\JsonApi\Resource\Filter\FilterInterface $filter, mixed $value, bool $ids = false): \Closure
     {
         if ($filter instanceof FiltersThrough && $filter->throughRelations() !== null) {
             return $this->through($filter, $value);
@@ -163,11 +166,11 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         return match (true) {
             $filter instanceof WhereAll => $this->whereAll($filter, $value),
             $filter instanceof WhereAny => $this->whereAny($filter, $value),
-            $filter instanceof Where => $this->where($filter, $value),
-            $filter instanceof WhereIn => $this->whereIn($filter->column, $this->members($filter, $value), false),
-            $filter instanceof WhereNotIn => $this->whereIn($filter->column, $this->members($filter, $value), true),
-            $filter instanceof WhereIdIn => $this->whereIn($filter->column, $this->members($filter, $value), false),
-            $filter instanceof WhereIdNotIn => $this->whereIn($filter->column, $this->members($filter, $value), true),
+            $filter instanceof Where => $this->where($filter, $value, $ids),
+            $filter instanceof WhereIn => $this->whereIn($filter->column, $this->members($filter, $value), false, $ids),
+            $filter instanceof WhereNotIn => $this->whereIn($filter->column, $this->members($filter, $value), true, $ids),
+            $filter instanceof WhereIdIn => $this->whereIn($filter->column, $this->members($filter, $value), false, true),
+            $filter instanceof WhereIdNotIn => $this->whereIn($filter->column, $this->members($filter, $value), true, true),
             $filter instanceof WhereNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) === null,
             $filter instanceof WhereNotNull => static fn(mixed $row): bool => Accessor::get($row, $filter->column) !== null,
             $filter instanceof WhereThrough => $this->whereThrough($filter, $value),
@@ -194,7 +197,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $path = $filter->resolvedThrough();
         \assert($path !== null);
         $admit = $this->admit;
-        $leaf = $this->predicate($leafFilter, $filter->leafValue($value));
+        $leaf = $this->predicate($leafFilter, $filter->leafValue($value), $path->leafId() !== null);
 
         // An existence leaf asks whether the reached row's relation holds a row its type's
         // scope admits.
@@ -240,9 +243,14 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     /**
      * @return \Closure(mixed): bool
      */
-    private function where(Where $filter, mixed $value): \Closure
+    private function where(Where $filter, mixed $value, bool $ids): \Closure
     {
         $expected = $filter->deserialize !== null ? ($filter->deserialize)($value) : $value;
+        if ($ids) {
+            $expected = self::idForm($expected);
+
+            return fn(mixed $row): bool => $this->compare(self::idForm(self::column($row, $filter->column)), $filter->operator, $expected);
+        }
 
         return fn(mixed $row): bool => $this->compare(self::column($row, $filter->column), $filter->operator, $expected);
     }
@@ -308,6 +316,9 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $expected = $filter->storageValue($value);
         $read = $this->leafReader($filter->resolved);
+        if ($filter->resolved?->relatedIdColumn() !== null) {
+            $expected = self::idForm($expected);
+        }
         $leaf = fn(mixed $actual): bool => $this->compare($read($actual), $filter->operator, $expected);
 
         return fn(mixed $row): bool => $this->existsThrough($row, ThroughPath::split($filter->path), $leaf);
@@ -323,14 +334,18 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $values = $filter->storageValues($value);
         $read = $this->leafReader($filter->resolved);
+        if ($filter->resolved?->relatedIdColumn() !== null) {
+            $values = \array_map(self::idForm(...), $values);
+        }
         $leaf = static fn(mixed $actual): bool => \in_array($read($actual), $values, false);
 
         return fn(mixed $row): bool => $values !== [] && $this->existsThrough($row, ThroughPath::split($filter->path), $leaf);
     }
 
     /**
-     * What a leaf compares of the value the walk reached: a related row's storage key
-     * when the path ends on a relationship, the value itself when it ends on a field.
+     * What a leaf compares of the value the walk reached: a related row's storage key, a
+     * uuid-like one in lower case, when the path ends on a relationship, the value itself
+     * when it ends on a field.
      *
      * @return \Closure(mixed): mixed
      */
@@ -340,7 +355,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
 
         return $column === null
             ? static fn(mixed $actual): mixed => $actual instanceof \BackedEnum ? $actual->value : $actual
-            : static fn(mixed $related): mixed => Accessor::get($related, $column);
+            : static fn(mixed $related): mixed => self::idForm(Accessor::get($related, $column));
     }
 
     /**
@@ -699,10 +714,17 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * @param list<mixed> $values
      * @return \Closure(mixed): bool
      */
-    private function whereIn(string $column, array $values, bool $negate): \Closure
+    private function whereIn(string $column, array $values, bool $negate, bool $ids = false): \Closure
     {
-        return function (mixed $row) use ($column, $values, $negate): bool {
+        if ($ids) {
+            $values = \array_map(self::idForm(...), $values);
+        }
+
+        return function (mixed $row) use ($column, $values, $negate, $ids): bool {
             $actual = self::column($row, $column);
+            if ($ids) {
+                $actual = self::idForm($actual);
+            }
             $contained = false;
             foreach ($values as $value) {
                 if ($value instanceof \haddowg\JsonApi\Resource\Filter\DateOperand ? $this->compare($actual, '=', $value) : $actual == $value) {
@@ -756,5 +778,14 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $value = Accessor::get($row, $column);
 
         return $value instanceof \BackedEnum ? $value->value : $value;
+    }
+
+    /**
+     * An id as it compares: a uuid-like one, which a column may hold in either case, in
+     * lower case, and anything else unchanged, so other ids still compare exactly.
+     */
+    private static function idForm(mixed $id): mixed
+    {
+        return ($id instanceof \Stringable || \is_string($id)) && StoredIdForms::isUuidLike((string) $id) ? StoredIdForms::comparable($id) : $id;
     }
 }
