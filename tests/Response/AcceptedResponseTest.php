@@ -100,6 +100,42 @@ final class AcceptedResponseTest extends TestCase
         self::assertSame('+02:00', $when->format('P'));
     }
 
+    #[Test]
+    public function withSerializerRendersTheJobThroughTheNewSerializerAndKeepsEverythingElse(): void
+    {
+        $original = new StubResource('queue-jobs', '5234', attributes: ['status' => static fn(): string => 'processing']);
+        $replacement = new StubResource('queue-jobs', '5234', attributes: ['status' => static fn(): string => 'rebound']);
+
+        $base = AcceptedResponse::forResource(new \stdClass(), $original)
+            ->withMeta(['source' => 'action'])
+            ->withContentLocation('/queue-jobs/5234');
+
+        $rebound = $base->withSerializer($replacement);
+
+        self::assertSame($original, $base->serializer());
+        self::assertSame($replacement, $rebound->serializer());
+
+        $psr = $rebound->toPsrResponse(new StubServer(), StubJsonApiRequest::create());
+        $body = $this->decode($psr->getBody()->getContents());
+
+        self::assertSame(202, $psr->getStatusCode());
+        self::assertSame('/queue-jobs/5234', $psr->getHeaderLine('Content-Location'));
+        self::assertIsArray($body['data']);
+        self::assertSame(['status' => 'rebound'], $body['data']['attributes']);
+        self::assertSame(['source' => 'action'], $body['meta']);
+    }
+
+    #[Test]
+    public function aMetaOnlyResponseRefusesASerializer(): void
+    {
+        $response = AcceptedResponse::fromMeta(['status' => 'queued']);
+
+        self::assertNull($response->serializer());
+
+        $this->expectException(\LogicException::class);
+        $response->withSerializer(new StubResource('queue-jobs', '1'));
+    }
+
     /**
      * @return array<string, mixed>
      */

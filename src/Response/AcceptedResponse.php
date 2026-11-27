@@ -38,7 +38,7 @@ final class AcceptedResponse extends AbstractResponse
      */
     private function __construct(
         private readonly mixed $data,
-        private readonly ?SerializerInterface $resource,
+        private ?SerializerInterface $resource,
     ) {}
 
     /**
@@ -71,6 +71,32 @@ final class AcceptedResponse extends AbstractResponse
     public function job(): mixed
     {
         return $this->resource === null ? null : $this->data;
+    }
+
+    /**
+     * The job resource's serializer, or `null` for a meta-only document.
+     */
+    public function serializer(): ?SerializerInterface
+    {
+        return $this->resource;
+    }
+
+    /**
+     * A copy that renders the same job resource through `$serializer`, keeping the
+     * document members, headers and profiles.
+     *
+     * @throws \LogicException for a meta-only response, which has no resource to render
+     */
+    public function withSerializer(SerializerInterface $serializer): static
+    {
+        if ($this->resource === null) {
+            throw new \LogicException('A meta-only AcceptedResponse has no job resource to render through a serializer.');
+        }
+
+        $self = clone $this;
+        $self->resource = $serializer;
+
+        return $self;
     }
 
     /**

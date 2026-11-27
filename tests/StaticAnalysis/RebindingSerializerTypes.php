@@ -8,7 +8,9 @@ use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
 use haddowg\JsonApi\Resource\RendersRelationsTrait;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
+use haddowg\JsonApi\Response\AcceptedResponse;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Serializer\SerializerInterface;
@@ -34,6 +36,18 @@ final class RebindingSerializerTypes extends AbstractSerializer
     public static function rebind(DataResponse $response, SerializerResolverInterface $resolver, RelationInterface $relation): DataResponse
     {
         return $response->withSerializer(new self($response->serializer(), $resolver, [$relation->name() => $relation]));
+    }
+
+    public static function rebindRelated(RelatedResponse $response, SerializerResolverInterface $resolver, RelationInterface $relation): RelatedResponse
+    {
+        return $response->withSerializer(new self($response->serializer(), $resolver, [$relation->name() => $relation]));
+    }
+
+    public static function rebindAccepted(AcceptedResponse $response, SerializerResolverInterface $resolver, RelationInterface $relation): AcceptedResponse
+    {
+        $serializer = $response->serializer();
+
+        return $serializer === null ? $response : $response->withSerializer(new self($serializer, $resolver, [$relation->name() => $relation]));
     }
 
     public function getType(mixed $object): string
