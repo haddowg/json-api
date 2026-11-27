@@ -151,6 +151,17 @@ final class ForeignKeyTest extends TestCase
     }
 
     #[Test]
+    public function theParentKeyOfAUuidStoredInCapitalsIsTheStoredKey(): void
+    {
+        $owners = self::server()->serializerFor('owners');
+        $owner = (object) ['id' => '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA'];
+
+        self::assertSame('5f0c3b2d-1e00-4a4e-9c55-7a4e0000aaaa', $owners->getId($owner));
+        self::assertSame('5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA', ForeignKey::parentKey($owners, $owner));
+        self::assertSame('MixedCase', ForeignKey::parentKey($owners, (object) ['id' => 'MixedCase']));
+    }
+
+    #[Test]
     public function theValidatorAcceptsAStoredFieldAndAToOneToTheParentsType(): void
     {
         $server = self::server();
