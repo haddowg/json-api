@@ -212,6 +212,27 @@ comparison (`like` is a case-insensitive `stripos`, matching what a SQL
 prefix/suffix variants, `LIKE '…%'` / `LIKE '%…'`); a database adapter translates
 the same operator strings into its own dialect.
 
+### A uuid value matches in either case
+
+A column may keep a uuid in capitals while the id that names it renders in lower case, so an
+equality filter whose value is a uuid in its canonical 8-4-4-4-12 hex form compares in
+either case. That covers `Where` with `=`, `==`, `===`, `!=` or `<>`, `WhereIn` and
+`WhereNotIn`, and the conveniences built on `=`, which are `Numeric` and `Boolean`, though
+their coerced values are never uuids. It applies at the leaf of a `->through()` path and of
+`WhereThrough` and `WhereThroughIn` too, and to every filter in a `WhereAll` or `WhereAny`
+group. `filter[owner]=5f0c3b2d-1e00-4a4e-9c55-7a4e0000aaaa` then finds a row whose `owner`
+holds `5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA`, and `!=` or `WhereNotIn` leaves that row out
+in both cases.
+
+A database adapter binds the value as sent and its lower- and upper-case forms, and never
+wraps the column in `LOWER()`, so an index on the column still serves the query. A uuid
+whose letters mix cases in the column matches only the value as sent. Every other value
+compares exactly, and so do the ordered operators `>`, `>=`, `<` and `<=`, `Range` and
+`DateRange`. `like`, `starts` and `ends`, behind `Contains`, `StartsWith` and `EndsWith`,
+keep their own case-insensitive match. The id filters compare ids in either case already,
+as [Paths that end on a relationship](#paths-that-end-on-a-relationship) and
+[Filtering by a relation's ids](#filtering-by-a-relations-ids) describe.
+
 ### Convenience filters
 
 Reaching for `Where::make('title', 'title', 'like')` — or wiring the coercion,

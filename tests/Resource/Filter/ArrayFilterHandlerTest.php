@@ -173,6 +173,43 @@ final class ArrayFilterHandlerTest extends TestCase
     }
 
     #[Test]
+    public function anEqualityFilterMatchesAUuidValueInEitherCase(): void
+    {
+        $upper = '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA';
+        $lower = '9b1d2c3e-4f50-4a6b-8c7d-8e9f0a1b2c3d';
+        $rows = [['id' => '1', 'owner' => $upper], ['id' => '2', 'owner' => $lower], ['id' => '3', 'owner' => null]];
+        $handler = new ArrayFilterHandler();
+
+        foreach ([[\strtolower($upper), '1'], [\strtoupper($lower), '2']] as [$sent, $match]) {
+            self::assertSame([$match], $this->ids($handler->apply(Where::make('owner')->build(), $rows, $sent)), $sent);
+            self::assertSame([$match], $this->ids($handler->apply(Where::make('owner', 'owner', '===')->build(), $rows, $sent)), $sent);
+            self::assertSame([$match], $this->ids($handler->apply(WhereIn::make('owner')->build(), $rows, $sent)), $sent);
+            self::assertNotContains($match, $this->ids($handler->apply(Where::make('owner', 'owner', '<>')->build(), $rows, $sent)), $sent);
+            self::assertNotContains($match, $this->ids($handler->apply(Where::make('owner', 'owner', '!=')->build(), $rows, $sent)), $sent);
+            self::assertNotContains($match, $this->ids($handler->apply(WhereNotIn::make('owner')->build(), $rows, $sent)), $sent);
+        }
+
+        self::assertSame(['1', '2'], $this->ids($handler->apply(WhereIn::make('owner')->build(), $rows, [\strtolower($upper), \strtoupper($lower)])));
+        self::assertSame(['3'], $this->ids($handler->apply(WhereNotIn::make('owner')->build(), $rows, [\strtolower($upper), \strtoupper($lower)])));
+    }
+
+    #[Test]
+    public function anOrderedOrNonUuidComparisonStaysExact(): void
+    {
+        $upper = '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA';
+        $rows = [['id' => '1', 'owner' => $upper], ['id' => '2', 'owner' => 'Plain']];
+        $handler = new ArrayFilterHandler();
+
+        // Capitals sort before lower case, so only an exact comparison leaves the row out.
+        self::assertSame([], $this->ids($handler->apply(Where::make('owner', 'owner', '>=')->build(), [$rows[0]], \strtolower($upper))));
+        self::assertSame(['1'], $this->ids($handler->apply(Where::make('owner', 'owner', '<')->build(), [$rows[0]], \strtolower($upper))));
+        self::assertSame([], $this->ids($handler->apply(Where::make('owner')->build(), $rows, 'plain')));
+        self::assertSame([], $this->ids($handler->apply(WhereIn::make('owner')->build(), $rows, 'plain')));
+        self::assertSame(['1', '2'], $this->ids($handler->apply(WhereNotIn::make('owner')->build(), $rows, 'plain')));
+        self::assertSame(['2'], $this->ids($handler->apply(Where::make('owner')->build(), $rows, 'Plain')));
+    }
+
+    #[Test]
     public function whereNull(): void
     {
         $result = (new ArrayFilterHandler())->apply(WhereNull::make('deletedAt'), $this->data(), '1');

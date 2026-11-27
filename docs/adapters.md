@@ -168,9 +168,13 @@ A filter that compares ids matches a uuid-shaped id in either case, because a co
 keep a uuid in capitals while its wire id is lower case. That covers `WhereIdIn` and
 `WhereIdNotIn`, a `WhereThrough` or `WhereThroughIn` whose path ends on a relationship,
 and any filter declared with `->through()` whose leaf is the reached type's id. Every
-other id, and every value a filter compares with a plain column, still compares exactly.
-A database adapter matches the same way, for example by binding both cases of a
-uuid-shaped key.
+other id still compares exactly. An equality filter on a plain column, `Where` with `=` or
+`!=` and `WhereIn` or `WhereNotIn`, matches a uuid-shaped value in either case as well, and
+every other value and operator compares exactly
+([A uuid value matches in either case](filters.md#a-uuid-value-matches-in-either-case)). A
+database adapter matches the same way by binding both cases of a uuid-shaped value, with
+`StoredIdForms::forms(null, [$value])` giving the forms to bind, and never by lower-casing
+the column.
 
 ### ArraySortHandler — one cascading comparator
 

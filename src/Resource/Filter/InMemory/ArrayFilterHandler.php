@@ -59,6 +59,12 @@ use haddowg\JsonApi\Resource\Through\FiltersThrough;
 final class ArrayFilterHandler implements FilterHandlerInterface
 {
     /**
+     * The operators that compare a value for equality, and those that negate it.
+     */
+    private const array EQUALS = ['=', '==', '==='];
+    private const array DIFFERS = ['!=', '<>'];
+
+    /**
      * @var list<ArrayFilterArmInterface>
      */
     private readonly array $arms;
@@ -251,6 +257,10 @@ final class ArrayFilterHandler implements FilterHandlerInterface
 
             return fn(mixed $row): bool => $this->compare(self::idForm(self::column($row, $filter->column)), $filter->operator, $expected);
         }
+        $forms = self::caseForms($filter->operator, $expected);
+        if ($forms !== null) {
+            return fn(mixed $row): bool => $this->compareForms(self::column($row, $filter->column), $filter->operator, $forms);
+        }
 
         return fn(mixed $row): bool => $this->compare(self::column($row, $filter->column), $filter->operator, $expected);
     }
@@ -316,10 +326,15 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $expected = $filter->storageValue($value);
         $read = $this->leafReader($filter->resolved);
+        $forms = null;
         if ($filter->resolved?->relatedIdColumn() !== null) {
             $expected = self::idForm($expected);
+        } else {
+            $forms = self::caseForms($filter->operator, $expected);
         }
-        $leaf = fn(mixed $actual): bool => $this->compare($read($actual), $filter->operator, $expected);
+        $leaf = $forms === null
+            ? fn(mixed $actual): bool => $this->compare($read($actual), $filter->operator, $expected)
+            : fn(mixed $actual): bool => $this->compareForms($read($actual), $filter->operator, $forms);
 
         return fn(mixed $row): bool => $this->existsThrough($row, ThroughPath::split($filter->path), $leaf);
     }
@@ -334,9 +349,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     {
         $values = $filter->storageValues($value);
         $read = $this->leafReader($filter->resolved);
-        if ($filter->resolved?->relatedIdColumn() !== null) {
-            $values = \array_map(self::idForm(...), $values);
-        }
+        $values = $filter->resolved?->relatedIdColumn() !== null ? \array_map(self::idForm(...), $values) : self::setForms($values);
         $leaf = static fn(mixed $actual): bool => \in_array($read($actual), $values, false);
 
         return fn(mixed $row): bool => $values !== [] && $this->existsThrough($row, ThroughPath::split($filter->path), $leaf);
@@ -716,9 +729,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      */
     private function whereIn(string $column, array $values, bool $negate, bool $ids = false): \Closure
     {
-        if ($ids) {
-            $values = \array_map(self::idForm(...), $values);
-        }
+        $values = $ids ? \array_map(self::idForm(...), $values) : self::setForms($values);
 
         return function (mixed $row) use ($column, $values, $negate, $ids): bool {
             $actual = self::column($row, $column);
@@ -778,6 +789,58 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         $value = Accessor::get($row, $column);
 
         return $value instanceof \BackedEnum ? $value->value : $value;
+    }
+
+    /**
+     * The forms an equality operator compares `$expected` in: a uuid-like string in each
+     * case a column may keep it in, as a database adapter binds both, or null for any
+     * other operator or value, which compares exactly.
+     *
+     * @return list<mixed>|null
+     */
+    private static function caseForms(string $operator, mixed $expected): ?array
+    {
+        if (!\in_array($operator, [...self::EQUALS, ...self::DIFFERS], true) || !\is_string($expected) || !StoredIdForms::isUuidLike($expected)) {
+            return null;
+        }
+
+        return StoredIdForms::forms(null, [$expected]);
+    }
+
+    /**
+     * Whether `$actual` equals one of `$forms` under an equality operator, or none of them
+     * under a negated one.
+     *
+     * @param list<mixed> $forms
+     */
+    private function compareForms(mixed $actual, string $operator, array $forms): bool
+    {
+        $differs = \in_array($operator, self::DIFFERS, true);
+        foreach ($forms as $form) {
+            if ($this->compare($actual, $differs ? '=' : $operator, $form)) {
+                return !$differs;
+            }
+        }
+
+        return $differs;
+    }
+
+    /**
+     * A set filter's values with each uuid-like string in both cases a column may keep it
+     * in, and every other value as it is.
+     *
+     * @param list<mixed> $values
+     *
+     * @return list<mixed>
+     */
+    private static function setForms(array $values): array
+    {
+        $forms = [];
+        foreach ($values as $value) {
+            \array_push($forms, ...(\is_string($value) && StoredIdForms::isUuidLike($value) ? StoredIdForms::forms(null, [$value]) : [$value]));
+        }
+
+        return $forms;
     }
 
     /**
