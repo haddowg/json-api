@@ -177,7 +177,7 @@ final class ArrayFilterHandlerTest extends TestCase
     {
         $upper = '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA';
         $lower = '9b1d2c3e-4f50-4a6b-8c7d-8e9f0a1b2c3d';
-        $rows = [['id' => '1', 'owner' => $upper], ['id' => '2', 'owner' => $lower], ['id' => '3', 'owner' => null]];
+        $rows = [['id' => '1', 'owner' => $upper], ['id' => '2', 'owner' => $lower], ['id' => '3', 'owner' => 'Plain'], ['id' => '4', 'owner' => null]];
         $handler = new ArrayFilterHandler();
 
         foreach ([[\strtolower($upper), '1'], [\strtoupper($lower), '2']] as [$sent, $match]) {
@@ -191,6 +191,26 @@ final class ArrayFilterHandlerTest extends TestCase
 
         self::assertSame(['1', '2'], $this->ids($handler->apply(WhereIn::make('owner')->build(), $rows, [\strtolower($upper), \strtoupper($lower)])));
         self::assertSame(['3'], $this->ids($handler->apply(WhereNotIn::make('owner')->build(), $rows, [\strtolower($upper), \strtoupper($lower)])));
+    }
+
+    #[Test]
+    public function aNegatedFilterNeverMatchesANullColumn(): void
+    {
+        $upper = '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA';
+        $rows = [['id' => '1', 'status' => 'draft', 'owner' => $upper], ['id' => '2', 'status' => null, 'owner' => null], ['id' => '3', 'status' => 'published', 'owner' => 'Plain']];
+        $handler = new ArrayFilterHandler();
+
+        foreach (['!=', '<>'] as $operator) {
+            self::assertSame(['3'], $this->ids($handler->apply(Where::make('status', 'status', $operator)->build(), $rows, 'draft')), $operator);
+            self::assertSame(['3'], $this->ids($handler->apply(Where::make('owner', 'owner', $operator)->build(), $rows, \strtolower($upper))), $operator);
+        }
+        self::assertSame(['3'], $this->ids($handler->apply(WhereNotIn::make('status')->build(), $rows, 'draft')));
+        self::assertSame(['3'], $this->ids($handler->apply(WhereNotIn::make('owner')->build(), $rows, \strtolower($upper))));
+        self::assertSame(['1', '3'], $this->ids($handler->apply(WhereIdNotIn::make('id', 'status')->build(), $rows, 'other')));
+        // An empty list adds no condition, as SQL's empty NOT IN does.
+        self::assertSame(['1', '2', '3'], $this->ids($handler->apply(WhereNotIn::make('status')->build(), $rows, [])));
+        // Equality still never matches a null column, and WhereNull still finds it.
+        self::assertSame(['2'], $this->ids($handler->apply(WhereNull::make('status'), $rows, null)));
     }
 
     #[Test]

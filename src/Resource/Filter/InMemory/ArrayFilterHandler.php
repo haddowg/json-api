@@ -493,10 +493,11 @@ final class ArrayFilterHandler implements FilterHandlerInterface
      * An **ordered** comparison (`>`, `>=`, `<`, `<=`) against `null` never
      * matches: either operand being `null` yields false, mirroring SQL
      * three-valued logic (the predicate is UNKNOWN, excluding the row) rather
-     * than PHP's silent coercion of `null` toward `0`/`''`. Loose/strict
-     * equality (`=`/`==`/`!=`/`<>`/`===`) keeps native PHP semantics — `= null`
-     * is expressed with the dedicated {@see WhereNull}/{@see WhereNotNull}
-     * filters.
+     * than PHP's silent coercion of `null` toward `0`/`''`. A negated
+     * comparison (`!=`, `<>`) never matches a `null` column for the same reason,
+     * so it keeps only the rows holding another value. Equality (`=`/`==`/`===`)
+     * keeps native PHP semantics — `= null` is expressed with the dedicated
+     * {@see WhereNull}/{@see WhereNotNull} filters.
      */
     private function compare(mixed $actual, string $operator, mixed $expected): bool
     {
@@ -509,7 +510,7 @@ final class ArrayFilterHandler implements FilterHandlerInterface
         return match ($operator) {
             '=', '==' => $actual == $expected,
             '===' => $actual === $expected,
-            '!=', '<>' => $actual != $expected,
+            '!=', '<>' => $actual !== null && $actual != $expected,
             // An ordered comparison against `null` never matches: either operand
             // being `null` yields false, mirroring SQL three-valued logic (the
             // predicate is UNKNOWN, so the row is excluded) rather than PHP's
@@ -733,6 +734,11 @@ final class ArrayFilterHandler implements FilterHandlerInterface
 
         return function (mixed $row) use ($column, $values, $negate, $ids): bool {
             $actual = self::column($row, $column);
+            // An empty NOT IN adds no condition; any other never matches a null column, as
+            // SQL's NOT IN leaves it out.
+            if ($negate && $values !== [] && $actual === null) {
+                return false;
+            }
             if ($ids) {
                 $actual = self::idForm($actual);
             }
@@ -816,6 +822,9 @@ final class ArrayFilterHandler implements FilterHandlerInterface
     private function compareForms(mixed $actual, string $operator, array $forms): bool
     {
         $differs = \in_array($operator, self::DIFFERS, true);
+        if ($differs && $actual === null) {
+            return false;
+        }
         foreach ($forms as $form) {
             if ($this->compare($actual, $differs ? '=' : $operator, $form)) {
                 return !$differs;
