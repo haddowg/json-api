@@ -153,9 +153,10 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
     }
 
     /**
-     * The type of the primary data, read off the single resource or the first member of
-     * a collection held in an array, so a decorated primary serializer still finds its
-     * Resource. `null` when there is no such object to read it off.
+     * The type of the primary data, so a decorated primary serializer still finds its
+     * Resource: read off the single resource or the first member of a collection held in
+     * an array, else the type dispatch recorded from the operation, which an empty or
+     * lazily read collection relies on.
      */
     private function primaryType(SerializerInterface $primary, ResourceDocumentTransformation $transformation): ?string
     {
@@ -164,6 +165,10 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
             $object = \is_array($object) && $object !== [] ? $object[\array_key_first($object)] : null;
         }
 
-        return \is_object($object) && !$primary instanceof PolymorphicSerializer ? $primary->getType($object) : null;
+        if ($primary instanceof PolymorphicSerializer) {
+            return null;
+        }
+
+        return \is_object($object) ? $primary->getType($object) : $transformation->primaryType;
     }
 }

@@ -998,7 +998,7 @@ final class Server implements ResolvingServerInterface, RequestHandlerInterface,
         $this->scopeEnforcer?->enforce($operation, $this->resources);
         $this->fireServing($operation);
 
-        $response = $handler->handle($operation);
+        $response = \haddowg\JsonApi\Response\Internal\PrimaryType::record($handler->handle($operation), $operation, $this);
         $location = $operation instanceof \haddowg\JsonApi\Operation\CustomActionOperation
             ? \haddowg\JsonApi\OpenApi\Metadata\ActionResponses::location($operation->responds())
             : null;

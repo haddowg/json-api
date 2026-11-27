@@ -6,6 +6,8 @@ namespace haddowg\JsonApi\Tests\Server;
 
 use haddowg\JsonApi\Exception\RelationshipCountNotAllowed;
 use haddowg\JsonApi\Operation\JsonApiOperationInterface;
+use haddowg\JsonApi\Operation\OperationContext;
+use haddowg\JsonApi\Operation\OperationFactory;
 use haddowg\JsonApi\Operation\OperationHandlerInterface;
 use haddowg\JsonApi\Operation\Target;
 use haddowg\JsonApi\Request\JsonApiRequest;
@@ -26,6 +28,8 @@ use haddowg\JsonApi\Resource\SerializerResolverAwareInterface;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Response\DataResponse;
 use haddowg\JsonApi\Response\IdentifierResponse;
+use haddowg\JsonApi\Response\Internal\PrimaryType;
+use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Document\AbstractResourceDocument;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Schema\Profile\CountableProfile;
@@ -57,6 +61,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ForeignKey::class)]
 #[CoversClass(IdentifierResponse::class)]
 #[CoversClass(AbstractResourceDocument::class)]
+#[CoversClass(PrimaryType::class)]
 final class DecoratedSerializerStoredPairTest extends TestCase
 {
     private const string STORED_UUID = 'A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D';
@@ -149,12 +154,92 @@ final class DecoratedSerializerStoredPairTest extends TestCase
         DataResponse::fromResource(self::fleet(null, []), $parent)->toPsrResponse($server, $request);
     }
 
+    /**
+     * @return iterable<string, array{Target, \Closure(DecoratedParentSerializer): (DataResponse|RelatedResponse)}>
+     */
+    public static function collectionsWithNoMemberToRead(): iterable
+    {
+        yield 'an empty collection' => [
+            new Target('fleets'),
+            static fn(DecoratedParentSerializer $parent): DataResponse => DataResponse::fromCollection([], $parent),
+        ];
+        yield 'a collection read through its iterator' => [
+            new Target('fleets'),
+            static fn(DecoratedParentSerializer $parent): DataResponse => DataResponse::fromCollection(new \ArrayObject([self::fleet(null, [])]), $parent),
+        ];
+        yield 'an empty related collection' => [
+            new Target('fleets', '1', 'escorts'),
+            static fn(DecoratedParentSerializer $parent): RelatedResponse => RelatedResponse::fromCollection([], $parent),
+        ];
+    }
+
+    /**
+     * @param \Closure(DecoratedParentSerializer): (DataResponse|RelatedResponse) $respond
+     */
+    #[Test]
+    #[DataProvider('collectionsWithNoMemberToRead')]
+    public function aWriteOnlyRelationOfADecoratedPrimaryIsNotCountableWithNoMemberToRead(Target $target, \Closure $respond): void
+    {
+        $server = self::server();
+        $handler = new class ($respond) implements OperationHandlerInterface {
+            /**
+             * @param \Closure(DecoratedParentSerializer): (DataResponse|RelatedResponse) $respond
+             */
+            public function __construct(private \Closure $respond) {}
+
+            public function handle(JsonApiOperationInterface $operation): DataResponse|RelatedResponse
+            {
+                $server = $operation->context()->server;
+                \assert($server instanceof Server);
+
+                return ($this->respond)(new DecoratedParentSerializer($server->serializerFor('fleets'), new DecoratingResolver($server, false)));
+            }
+        };
+
+        $request = (new ServerRequest('GET', '/fleets'))
+            ->withAttribute(Target::class, $target)
+            ->withQueryParams(['withCount' => 'crew'])
+            ->withHeader('Accept', 'application/vnd.api+json;profile="' . CountableProfile::URI . '"');
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+
+        $server->withHandler($handler)->handle($request);
+    }
+
+    #[Test]
+    public function dispatchRecordsThePrimaryTypeForAnEmptyDecoratedCollection(): void
+    {
+        $server = self::server();
+        $handler = new class implements OperationHandlerInterface {
+            public function handle(JsonApiOperationInterface $operation): DataResponse
+            {
+                $server = $operation->context()->server;
+                \assert($server instanceof Server);
+
+                return DataResponse::fromCollection([], new DecoratedParentSerializer($server->serializerFor('fleets'), new DecoratingResolver($server, false)));
+            }
+        };
+        $server = $server->withHandler($handler);
+        $http = (new ServerRequest('GET', '/fleets'))
+            ->withQueryParams(['withCount' => 'crew'])
+            ->withHeader('Accept', 'application/vnd.api+json;profile="' . CountableProfile::URI . '"');
+        $request = new JsonApiRequest($http);
+        $operation = (new OperationFactory())->fromRequest($request, new Target('fleets'), new OperationContext($server, $http));
+
+        $response = $server->dispatch($operation);
+
+        $this->expectException(RelationshipCountNotAllowed::class);
+
+        $response->toPsrResponse($server, $request);
+    }
+
     private static function server(): Server
     {
         $psr17 = new Psr17Factory();
 
         return Server::make()
             ->withPsr17($psr17, $psr17)
+            ->withProfile(new CountableProfile())
             ->register(DecoratedFleetResource::class)
             ->register(DecoratedShipResource::class)
             ->register(DecoratedDockResource::class);
@@ -240,6 +325,7 @@ final class DecoratedFleetResource extends AbstractResource
                 ->identifiedBy(static fn(mixed $fleet): array => $fleet instanceof \stdClass && \is_array($fleet->vesselPairs) ? $fleet->vesselPairs : [])
                 ->extractUsing(static fn(mixed $fleet): mixed => $fleet instanceof \stdClass ? $fleet->vessels : []),
             HasMany::make('crew', 'docks')->countable()->writeOnly(static fn(): bool => true),
+            HasMany::make('escorts', 'fleets'),
         ];
     }
 }
