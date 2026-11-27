@@ -31,11 +31,25 @@ trait RendersRelationsTrait
     {
         $map = [];
         foreach ($relations as $relation) {
-            $build = static fn(mixed $model, JsonApiRequestInterface $request, string $name): AbstractRelationship
-                => $relation->buildRelationship($model, $request, $resolver);
-            $map[$relation->name()] = $relation->isSparseField() ? $build : new Internal\NonSparseMember($build);
+            $map[$relation->name()] = self::relationshipCallable($relation, $resolver);
         }
 
         return $map;
+    }
+
+    /**
+     * The callable for one relation, resolving related serializers through `$resolver`.
+     * A relation declared `notSparseField()` keeps rendering whatever `fields[type]`
+     * lists, so a decorator that rebuilds one relation through another resolver keeps
+     * that behaviour.
+     *
+     * @return callable(mixed, JsonApiRequestInterface, string): AbstractRelationship
+     */
+    protected static function relationshipCallable(RelationInterface $relation, SerializerResolverInterface $resolver): callable
+    {
+        $build = static fn(mixed $model, JsonApiRequestInterface $request, string $name): AbstractRelationship
+            => $relation->buildRelationship($model, $request, $resolver);
+
+        return $relation->isSparseField() ? $build : new Internal\NonSparseMember($build);
     }
 }

@@ -21,8 +21,9 @@ use haddowg\JsonApi\Transformer\ResourceDocumentTransformation;
  * Single vs collection is fixed at construction by the named constructor used
  * ({@see fromResource()} / {@see fromCollection()}) rather than inferred from the
  * runtime shape of the data — an iterable single resource is therefore never
- * mistaken for a collection. The domain data and its resource serializer are not
- * withable; the document-level members ({@see withMeta()} etc.) are.
+ * mistaken for a collection. The domain data is not withable; the serializer is,
+ * through {@see withSerializer()}, and so are the document-level members
+ * ({@see withMeta()} etc.).
  */
 final class DataResponse extends AbstractResponse
 {
@@ -33,7 +34,7 @@ final class DataResponse extends AbstractResponse
      */
     private function __construct(
         private readonly mixed $data,
-        private readonly SerializerInterface $resource,
+        private SerializerInterface $resource,
         private readonly bool $isCollection,
         private readonly ?\haddowg\JsonApi\Pagination\PageInterface $page = null,
     ) {}
@@ -106,6 +107,20 @@ final class DataResponse extends AbstractResponse
     public function serializer(): SerializerInterface
     {
         return $this->resource;
+    }
+
+    /**
+     * A copy that renders the same resources through `$serializer`, keeping the
+     * document members, status, headers, profiles and page. Included resources come from
+     * the relationships the primary serializer builds, so a decorator that rebuilds a
+     * relation renders its included members too.
+     */
+    public function withSerializer(SerializerInterface $serializer): static
+    {
+        $self = clone $this;
+        $self->resource = $serializer;
+
+        return $self;
     }
 
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
