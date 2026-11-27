@@ -40,8 +40,28 @@ final readonly class BelongsToMany extends HasMany implements PivotRelationInter
         RelationState $relationState,
         private array $pivotFields = [],
         private ?string $pivotThrough = null,
+        private ?string $pivotParentSide = null,
+        private ?string $pivotRelatedSide = null,
     ) {
         parent::__construct($state, $relationState);
+    }
+
+    /**
+     * The property or association of the {@see pivotThrough()} class pointing back at
+     * the parent, as `through(parent:)` names it, or `null` when the adapter finds it.
+     */
+    public function pivotParentSide(): ?string
+    {
+        return $this->pivotParentSide;
+    }
+
+    /**
+     * The property or association of the {@see pivotThrough()} class pointing at the
+     * member, as `through(related:)` names it, or `null` when the adapter finds it.
+     */
+    public function pivotRelatedSide(): ?string
+    {
+        return $this->pivotRelatedSide;
     }
 
     /**

@@ -145,6 +145,12 @@ final class MorphToManyBuilder extends AbstractRelationBuilder
 
     public function build(): MorphToMany
     {
+        if ($this->pivotParentSide !== null || $this->pivotRelatedSide !== null) {
+            throw new \LogicException(\sprintf(
+                'MorphToMany relation "%s" names a side of its link rows in through(); name its owner, type and id fields with identifiedByRows() instead.',
+                $this->name,
+            ));
+        }
         if ($this->pivotFields !== [] && $this->identifiedBy === null && $this->identifiedByRows === null) {
             throw new \LogicException(\sprintf(
                 'MorphToMany relation "%s" declares pivot fields, so it must be declared with identifiedBy() or identifiedByRows(): its link rows map each member to its type and id.',

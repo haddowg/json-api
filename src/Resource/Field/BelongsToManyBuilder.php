@@ -49,6 +49,6 @@ final class BelongsToManyBuilder extends HasManyBuilder
 
     public function build(): BelongsToMany
     {
-        return new BelongsToMany($this->fieldState(), $this->relationState(), $this->positionedPivotFields(), $this->pivotThrough);
+        return new BelongsToMany($this->fieldState(), $this->relationState(), $this->positionedPivotFields(), $this->pivotThrough, $this->pivotParentSide, $this->pivotRelatedSide);
     }
 }
