@@ -12,6 +12,7 @@ use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\NestedFieldset;
 use haddowg\JsonApi\Resource\Field\OneOf;
 use haddowg\JsonApi\Resource\Field\RelationInterface;
+use haddowg\JsonApi\Resource\Internal\RegisteredResource;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
@@ -300,21 +301,7 @@ final class NestedFieldsets
      */
     private static function declaringResource(SerializerInterface $serializer, ?string $type, ?SerializerResolverInterface $resolver): ?AbstractResource
     {
-        if ($serializer instanceof AbstractResource) {
-            return $serializer;
-        }
-        if ($type === null) {
-            return null;
-        }
-
-        $own = $serializer instanceof SerializerResolverAwareInterface ? $serializer->serializerResolver() : null;
-        foreach ([$own, $resolver] as $candidate) {
-            if ($candidate instanceof ProvidesResourcesInterface && $candidate->hasResourceFor($type)) {
-                return $candidate->resourceFor($type);
-            }
-        }
-
-        return null;
+        return RegisteredResource::of($serializer, $type, $resolver);
     }
 
     private static function attributeNamed(AbstractResource $resource, string $name): ?FieldInterface

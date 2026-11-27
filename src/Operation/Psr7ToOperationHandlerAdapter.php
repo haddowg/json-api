@@ -74,7 +74,11 @@ final readonly class Psr7ToOperationHandlerAdapter implements RequestHandlerInte
             ($this->operationGate)($operation);
         }
 
-        $response = \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::describeResponse($this->handler->handle($operation), $operation, $this->server);
+        $response = \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::describeResponse(
+            \haddowg\JsonApi\Response\Internal\PrimaryType::record($this->handler->handle($operation), $operation, $this->server),
+            $operation,
+            $this->server,
+        );
 
         return $response->toPsrResponse($this->server, $request);
     }

@@ -243,7 +243,7 @@ final readonly class MorphTo extends AbstractRelationValue implements Polymorphi
         $serializer = $resolver->serializerFor($type);
         $relationship->setStoredIdentifier(
             $type,
-            StoredPair::wireId($serializer, $id),
+            StoredPair::wireId($serializer, $type, $id, $resolver),
             $supplied !== null ? static fn(): mixed => $supplied->target : fn(): mixed => $this->relatedValue($model, $request, $this->state->name),
             $serializer,
         );

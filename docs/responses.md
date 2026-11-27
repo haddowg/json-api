@@ -128,6 +128,16 @@ $decorated = $response->withSerializer(
 );
 ```
 
+Core reads a type's id encoder and relation rules off the Resource the type was registered
+with, so a decorator doesn't hide them. It finds that Resource through the decorator's own
+`serializerResolver()`, when the decorator implements `SerializerResolverAwareInterface` and
+forwards it, or else through the resolver a relation renders against, when that resolver
+implements `ProvidesResourcesInterface`. An identified `MorphTo` or `MorphToMany` whose
+target serializer is decorated then still renders each stored id as its encoded wire id. A
+decorated primary serializer reads its type off the data it renders, and for an empty
+collection or one held behind an iterator it uses the type dispatch records from the
+operation: the target type, or the related type of a relation that relates to one.
+
 `fromCollection()` reads an iterator, such as a generator, into a list when the response
 is built, so reading `primaryResources()` leaves the render with every row. Arrays and
 `IteratorAggregate` collections, pages included, are kept as given.

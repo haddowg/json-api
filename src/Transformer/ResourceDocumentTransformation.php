@@ -47,6 +47,7 @@ final class ResourceDocumentTransformation extends AbstractDocumentTransformatio
         public ?\haddowg\JsonApi\Schema\Link\Internal\LinkRendering $linkRendering = null,
         public ?\haddowg\JsonApi\Scope\ScopeEnforcer $scopes = null,
         public ?\haddowg\JsonApi\Resource\SerializerResolverInterface $resolver = null,
+        public ?string $primaryType = null,
     ) {
         parent::__construct($document, $request, $additionalMeta);
     }

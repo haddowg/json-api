@@ -335,7 +335,7 @@ final readonly class MorphToMany extends AbstractRelationValue implements Polymo
             }
 
             $serializer = $resolver->serializerFor($member->type);
-            $id = StoredPair::wireId($serializer, $member->id);
+            $id = StoredPair::wireId($serializer, $member->type, $member->id, $resolver);
             $target = $member->target;
             $meta = $this->pivotFields === [] ? [] : ['pivot' => $this->pivotValues($member, $model, $request, $outputTimezone)];
             if ($identifierMeta !== null) {

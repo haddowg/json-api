@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Resource\Field\Internal;
 
-use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\StoredIdForms;
+use haddowg\JsonApi\Resource\Internal\RegisteredResource;
+use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
 /**
@@ -47,19 +48,18 @@ final class StoredPair
     /**
      * The stored id as the target's serializer would render it: through the id field's
      * encoder when the target type declares one. The stored id may be the storage key or
-     * the wire id already.
+     * the wire id already. The encoder comes from the Resource `$type` was registered
+     * with when `$serializer` is not that Resource itself, such as a decorator wrapping it.
      */
-    public static function wireId(SerializerInterface $serializer, string|int $id): string
+    public static function wireId(SerializerInterface $serializer, string $type, string|int $id, ?SerializerResolverInterface $resolver = null): string
     {
-        if ($serializer instanceof AbstractResource) {
-            foreach ($serializer->allFields() as $field) {
-                if ($field instanceof Id) {
-                    return StoredIdForms::wireId($field->encoder(), $id);
-                }
+        foreach (RegisteredResource::of($serializer, $type, $resolver)?->allFields() ?? [] as $field) {
+            if ($field instanceof Id) {
+                return StoredIdForms::wireId($field->encoder(), $id);
             }
         }
 
-        return (string) $id;
+        return StoredIdForms::wireId(null, $id);
     }
 
     /**

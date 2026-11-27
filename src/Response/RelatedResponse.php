@@ -30,6 +30,8 @@ final class RelatedResponse extends AbstractResponse
 {
     use AppliesPaginationTrait;
 
+    private ?string $primaryType = null;
+
     /**
      * @param \haddowg\JsonApi\Pagination\PageInterface<mixed>|null $page
      * @param bool|null                                            $selfCountable the owning relation's
@@ -149,6 +151,20 @@ final class RelatedResponse extends AbstractResponse
         return $self;
     }
 
+    /**
+     * Records the type of the operation's primary data, so a decorated serializer finds its
+     * Resource with no member to read the type off.
+     *
+     * @internal called on dispatch
+     */
+    public function withPrimaryType(?string $type): static
+    {
+        $self = clone $this;
+        $self->primaryType = $type;
+
+        return $self;
+    }
+
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
     {
         $document = $this->isCollection
@@ -168,6 +184,7 @@ final class RelatedResponse extends AbstractResponse
             linkRendering: \haddowg\JsonApi\Schema\Link\Internal\LinkRendering::forServer($server),
             scopes: \haddowg\JsonApi\Scope\ScopeEnforcer::forServer($server),
             resolver: $server instanceof \haddowg\JsonApi\Resource\SerializerResolverInterface ? $server : null,
+            primaryType: $this->primaryType,
         );
 
         $result = (new DocumentTransformer())->transformResourceDocument($transformation)->result;

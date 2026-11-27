@@ -7,6 +7,7 @@ namespace haddowg\JsonApi\Schema\Document;
 use haddowg\JsonApi\Exception\InclusionDepthExceeded;
 use haddowg\JsonApi\Exception\InclusionNotAllowed;
 use haddowg\JsonApi\Exception\RelationshipCountNotAllowed;
+use haddowg\JsonApi\Resource\Internal\RegisteredResource;
 use haddowg\JsonApi\Serializer\CountableControlsInterface;
 use haddowg\JsonApi\Serializer\IncludeControlsInterface;
 use haddowg\JsonApi\Serializer\PolymorphicSerializer;
@@ -109,7 +110,7 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
             static fn(string $name): bool => $name !== \haddowg\JsonApi\Schema\Profile\CountableProfile::SELF_TOKEN,
         ));
 
-        $countable = $this->countableRelationships($primary, $transformation);
+        $countable = $this->countableRelationships($primary, $transformation, $this->primaryType($primary, $transformation));
 
         $offending = [...$offending, ...\array_values(\array_diff($relationNames, $countable))];
         if ($offending !== []) {
@@ -124,7 +125,7 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
      *
      * @return list<string>
      */
-    private function countableRelationships(SerializerInterface $serializer, ResourceDocumentTransformation $transformation): array
+    private function countableRelationships(SerializerInterface $serializer, ResourceDocumentTransformation $transformation, ?string $type = null): array
     {
         if ($serializer instanceof PolymorphicSerializer) {
             $names = [];
@@ -140,13 +141,34 @@ abstract class AbstractResourceDocument implements ResourceDocumentInterface
             : [];
         // A relation write-only for this request renders no relationship object to
         // carry a count, so it is not countable here either.
-        if ($serializer instanceof \haddowg\JsonApi\Resource\AbstractResource) {
+        $resource = RegisteredResource::of($serializer, $type, $transformation->resolver);
+        if ($resource !== null) {
             $countable = \array_values(\array_filter(
                 $countable,
-                static fn(string $name): bool => $serializer->relationNamed($name)?->isWriteOnlyFor($transformation->request) !== true,
+                static fn(string $name): bool => $resource->relationNamed($name)?->isWriteOnlyFor($transformation->request) !== true,
             ));
         }
 
         return $countable;
+    }
+
+    /**
+     * The type of the primary data, so a decorated primary serializer still finds its
+     * Resource: read off the single resource or the first member of a collection held in
+     * an array, else the type dispatch recorded from the operation, which an empty or
+     * lazily read collection relies on.
+     */
+    private function primaryType(SerializerInterface $primary, ResourceDocumentTransformation $transformation): ?string
+    {
+        $object = $transformation->object;
+        if ($this instanceof AbstractCollectionDocument) {
+            $object = \is_array($object) && $object !== [] ? $object[\array_key_first($object)] : null;
+        }
+
+        if ($primary instanceof PolymorphicSerializer) {
+            return null;
+        }
+
+        return \is_object($object) ? $primary->getType($object) : $transformation->primaryType;
     }
 }
