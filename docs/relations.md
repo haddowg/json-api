@@ -770,7 +770,8 @@ link row its stored fields are read from:
 The wire shape is a `BelongsToMany`'s. Each identifier renders its readable fields as
 `meta.pivot`, each stored field read off the row with its column and cast by the field,
 `null` when the row holds nothing, and a write carries the writable ones in the same
-`meta.pivot`. `identifierMeta()` members sit beside `pivot` in the identifier's `meta`.
+`meta.pivot`. When the request hides every pivot field, `pivot` renders as `{}`.
+`identifierMeta()` members sit beside `pivot` in the identifier's `meta`.
 Declaring pivot fields without `identifiedByRows()` or `identifiedBy()` fails the build,
 because only the link rows map a member to its type and id, and a member of a relation with stored pivot fields
 that arrives without its row throws a `\LogicException`.
