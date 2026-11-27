@@ -47,7 +47,10 @@ always serialized as a **string** — a numeric `2` becomes `"2"` on the wire. A
 key your model holds as a `Stringable` object, such as a Doctrine `uuid` column
 hydrated to a `Uuid`, renders as its string form, so `Id::make()->uuid()` over a
 `Uuid` key needs no [encoder](#encoding-when-the-wire-id-differs-from-the-storage-key).
-The same string is used wherever the resource appears in linkage.
+A uuid-shaped key with no encoder renders in lower case, whatever case its column keeps,
+so a guid stored in capitals has the same id here as in any linkage read from a column.
+The same string is used wherever the resource appears in linkage, and a foreign key to
+the resource still holds the key as the resource stores it.
 
 ## Format helpers for a client-generated id
 
