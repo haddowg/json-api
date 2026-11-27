@@ -110,6 +110,24 @@ final class ArrayFilterHandlerThroughTest extends TestCase
     }
 
     #[Test]
+    public function aUuidValueAtAFieldLeafMatchesInEitherCase(): void
+    {
+        $upper = '5F0C3B2D-1E00-4A4E-9C55-7A4E0000AAAA';
+        $rows = [
+            ['id' => '1', 'campaign' => ['id' => 'c1', 'name' => $upper], 'templates' => [], 'brand' => null],
+            ['id' => '2', 'campaign' => ['id' => 'c2', 'name' => 'Plain'], 'templates' => [], 'brand' => null],
+        ];
+        $lower = \strtolower($upper);
+
+        self::assertSame(['1'], $this->apply(WhereThrough::make('name', 'campaign.name'), $lower, $rows));
+        self::assertSame(['2'], $this->apply(WhereThrough::make('name', 'campaign.name')->operator('<>'), $lower, $rows));
+        self::assertSame(['1'], $this->apply(WhereThroughIn::make('name', 'campaign.name'), $lower, $rows));
+        self::assertSame(['1'], $this->apply(Where::make('campaignName', 'name')->through('campaign'), $lower, $rows));
+        self::assertSame([], $this->apply(WhereThrough::make('name', 'campaign.name')->operator('>='), $lower, [$rows[0]]));
+        self::assertSame([], $this->apply(WhereThroughIn::make('name', 'campaign.name'), 'plain', $rows));
+    }
+
+    #[Test]
     public function aRelatedIdThatIsNoUuidComparesExactly(): void
     {
         $rows = [['id' => '1', 'campaign' => null, 'templates' => [['id' => 'Plain']], 'brand' => null]];
