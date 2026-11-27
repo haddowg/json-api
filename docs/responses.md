@@ -107,6 +107,27 @@ member of the collection or page, or none for a `null` resource. `serializer()` 
 the serializer they render through, so `$response->serializer()->getType($resource)`
 names each one's type.
 
+`withSerializer()` returns a copy that renders the same resources through another
+serializer and keeps the meta, links, status, headers, profiles and page. An adapter uses it
+to decorate a response it did not build, such as one a custom action returned: wrap
+`$response->serializer()` in a decorator and pass the decorator back. Included resources
+come from the relationships the primary serializer builds, so a decorator that rebuilds a
+relation changes its included members as well. Keep the type the wrapped serializer
+renders, because the operation the response answers and its published schema still
+describe that type.
+
+`RelatedResponse`, `IdentifierResponse` and the job-resource form of `AcceptedResponse`
+have the same `serializer()` and `withSerializer()` pair. A rebound `IdentifierResponse`
+still reads the relation's `countable()` and `writeOnly()` rules from the resource it was
+built with, since a decorator around that resource doesn't declare the relation. A meta-only `AcceptedResponse` has no resource,
+so its `serializer()` returns `null` and `withSerializer()` throws a `\LogicException`.
+
+```php
+$decorated = $response->withSerializer(
+    new PivotDecorator($response->serializer(), $pivotResolver),
+);
+```
+
 `fromCollection()` reads an iterator, such as a generator, into a list when the response
 is built, so reading `primaryResources()` leaves the render with every row. Arrays and
 `IteratorAggregate` collections, pages included, are kept as given.

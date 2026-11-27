@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace haddowg\JsonApi\Tests\Response;
 
+use haddowg\JsonApi\Exception\RelationshipCountNotAllowed;
 use haddowg\JsonApi\Pagination\PageBasedPage;
 use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Tests\Double\StubJsonApiRequest;
 use haddowg\JsonApi\Tests\Double\StubResource;
@@ -238,6 +240,44 @@ final class RelatedResponseTest extends TestCase
                 $response->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents(),
             ),
         );
+    }
+
+    #[Test]
+    public function withSerializerRendersThroughTheNewSerializerAndKeepsEverythingElse(): void
+    {
+        $original = new StubResource('comment', '1', attributes: ['body' => static fn(): string => 'before']);
+        $replacement = new StubResource('comment', '1', attributes: ['body' => static fn(): string => 'after']);
+
+        $base = RelatedResponse::fromPage(new PageBasedPage([new \stdClass()], totalItems: 3, page: 1, size: 1), $original, selfCountable: false)
+            ->withMeta(['source' => 'action'])
+            ->withHeader('X-Test', 'yes');
+
+        $rebound = $base->withSerializer($replacement);
+
+        self::assertNotSame($base, $rebound);
+        self::assertSame($original, $base->serializer());
+        self::assertSame($replacement, $rebound->serializer());
+
+        $request = new JsonApiRequest(new ServerRequest('GET', 'https://api.test/articles/1/comments'));
+        $psr = $rebound->toPsrResponse(new StubServer(baseUri: 'https://api.test'), $request);
+        $body = $this->decode($psr->getBody()->getContents());
+
+        self::assertSame('yes', $psr->getHeaderLine('X-Test'));
+        self::assertIsArray($body['data']);
+        self::assertIsArray($body['data'][0]);
+        self::assertSame(['body' => 'after'], $body['data'][0]['attributes']);
+        self::assertIsArray($body['meta']);
+        self::assertSame('action', $body['meta']['source']);
+        self::assertArrayHasKey('page', $body['meta']);
+        self::assertIsArray($body['links']);
+        self::assertArrayHasKey('next', $body['links']);
+
+        $withCount = StubJsonApiRequest::create(
+            ['withCount' => '_self_'],
+            ['Accept' => 'application/vnd.api+json;profile="' . CountableProfile::URI . '"'],
+        );
+        $this->expectException(RelationshipCountNotAllowed::class);
+        $rebound->toPsrResponse(new StubServer(), $withCount);
     }
 
     /**

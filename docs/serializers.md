@@ -300,6 +300,22 @@ final class TrackSerializer extends AbstractSerializer implements SerializerReso
 }
 ```
 
+`relationshipCallable(RelationInterface $relation, SerializerResolverInterface $resolver)`
+builds the callable for one relation. A decorator that delegates to another serializer
+and rebuilds a single relation against a different resolver uses it, because the callable
+it returns keeps the relation's `notSparseField()` behaviour: a plain closure would let
+`fields[type]` drop a relation the author declared always present.
+
+```php
+public function getRelationships(mixed $object, JsonApiRequestInterface $request): array
+{
+    $relationships = $this->inner->getRelationships($object, $request);
+    $relationships['tracks'] = self::relationshipCallable($this->tracks, $this->pivotResolver);
+
+    return $relationships;
+}
+```
+
 `getDefaultIncludedRelationships()` returns the relations to include by default
 (`['album']` would default-include the album); the default-include lever lives on
 the serializer contract, not on a fluent field method. See

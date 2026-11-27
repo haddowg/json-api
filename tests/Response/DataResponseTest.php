@@ -307,6 +307,46 @@ final class DataResponseTest extends TestCase
         );
     }
 
+    #[Test]
+    public function withSerializerRendersThroughTheNewSerializerAndKeepsEverythingElse(): void
+    {
+        $original = new StubResource('user', '1', attributes: ['name' => static fn(): string => 'Vader']);
+        $replacement = new StubResource('user', '1', attributes: ['name' => static fn(): string => 'Anakin']);
+
+        $base = DataResponse::fromPage(new PageBasedPage([new \stdClass()], totalItems: 3, page: 1, size: 1), $original)
+            ->withMeta(['source' => 'action'])
+            ->withLinks(new DocumentLinks(links: ['describedby' => new Link('/docs')]))
+            ->withStatus(201)
+            ->withHeader('X-Test', 'yes');
+
+        $rebound = $base->withSerializer($replacement);
+
+        self::assertNotSame($base, $rebound);
+        self::assertSame($original, $base->serializer());
+        self::assertSame($replacement, $rebound->serializer());
+        self::assertTrue($rebound->isCollection());
+
+        $psr = $rebound->toPsrResponse(new StubServer(), StubJsonApiRequest::create());
+        $body = $this->decode($psr->getBody()->getContents());
+
+        self::assertSame(201, $psr->getStatusCode());
+        self::assertSame('yes', $psr->getHeaderLine('X-Test'));
+        self::assertIsArray($body['data']);
+        self::assertIsArray($body['data'][0]);
+        self::assertSame(['name' => 'Anakin'], $body['data'][0]['attributes']);
+        self::assertIsArray($body['meta']);
+        self::assertSame('action', $body['meta']['source']);
+        self::assertArrayHasKey('page', $body['meta']);
+        self::assertIsArray($body['links']);
+        self::assertArrayHasKey('describedby', $body['links']);
+        self::assertArrayHasKey('next', $body['links']);
+
+        $before = $this->decode($base->toPsrResponse(new StubServer(), StubJsonApiRequest::create())->getBody()->getContents());
+        self::assertIsArray($before['data']);
+        self::assertIsArray($before['data'][0]);
+        self::assertSame(['name' => 'Vader'], $before['data'][0]['attributes']);
+    }
+
     /**
      * @return array<string, mixed>
      */
