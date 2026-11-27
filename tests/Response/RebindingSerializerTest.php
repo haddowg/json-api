@@ -8,12 +8,15 @@ use haddowg\JsonApi\Request\JsonApiRequest;
 use haddowg\JsonApi\Request\JsonApiRequestInterface;
 use haddowg\JsonApi\Resource\AbstractResource;
 use haddowg\JsonApi\Resource\Field\BelongsTo;
+use haddowg\JsonApi\Resource\Field\HasMany;
 use haddowg\JsonApi\Resource\Field\Id;
 use haddowg\JsonApi\Resource\Field\Str;
 use haddowg\JsonApi\Resource\RendersRelationsTrait;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\IdentifierResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
+use haddowg\JsonApi\Schema\Profile\CountableProfile;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
 use haddowg\JsonApi\Serializer\DeclaresRelationsInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
@@ -31,6 +34,7 @@ use PHPUnit\Framework\TestCase;
  * through a serializer decorator that rebuilds some relations against another resolver.
  */
 #[CoversClass(DataResponse::class)]
+#[CoversClass(IdentifierResponse::class)]
 #[CoversClass(RendersRelationsTrait::class)]
 final class RebindingSerializerTest extends TestCase
 {
@@ -62,6 +66,62 @@ final class RebindingSerializerTest extends TestCase
         self::assertIsArray($body['data']);
         self::assertIsArray($body['data']['relationships'] ?? null);
         self::assertSame(['owner', 'editor'], \array_keys($body['data']['relationships']));
+    }
+
+    #[Test]
+    public function relationshipLinkageRendersThroughTheRebuiltRelation(): void
+    {
+        $response = $this->linkage('owner')->toPsrResponse($this->server(), $this->request('GET', []));
+
+        /** @var array<string, mixed> $body */
+        $body = \json_decode((string) $response->getBody(), true, flags: \JSON_THROW_ON_ERROR);
+
+        self::assertSame(['type' => 'people', 'id' => '99'], $body['data'] ?? null);
+        self::assertSame(['published' => true], $body['meta'] ?? null);
+    }
+
+    #[Test]
+    public function aRebuiltLinkageStillReadsCountabilityFromTheResource(): void
+    {
+        $request = $this->request('GET', ['withCount' => '_self_'])
+            ->withHeader('Accept', 'application/vnd.api+json;profile="' . CountableProfile::URI . '"');
+
+        self::assertSame(200, $this->linkage('followers')->toPsrResponse($this->server(), $request)->getStatusCode());
+    }
+
+    #[Test]
+    public function aRebuiltWriteOnlyLinkageStillAnswersAMutationWithNoContent(): void
+    {
+        self::assertSame(204, $this->linkage('reviewer')->toPsrResponse($this->server(), $this->request('PATCH', []))->getStatusCode());
+    }
+
+    private function linkage(string $relationship): IdentifierResponse
+    {
+        $model = ['id' => '1', 'owner' => ['id' => '7'], 'followers' => [['id' => '7']], 'reviewer' => ['id' => '7']];
+        $action = IdentifierResponse::forRelationship($model, $this->server()->serializerFor('rebound-links'), $relationship)
+            ->withMeta(['published' => true]);
+
+        $substitute = (new StubSerializerResolver('people'))->withSerializer('people', new StubResource('people', '99'));
+        $rebound = $action->withSerializer(new RelationRebindingSerializer($action->serializer(), $substitute, ['owner', 'followers']));
+
+        self::assertNotSame($action->serializer(), $rebound->serializer());
+
+        return $rebound;
+    }
+
+    private function server(): Server
+    {
+        $psr17 = new Psr17Factory();
+
+        return Server::make()->withPsr17($psr17, $psr17)->register(ReboundLinkResource::class)->register(ReboundPersonResource::class);
+    }
+
+    /**
+     * @param array<string, mixed> $query
+     */
+    private function request(string $method, array $query): JsonApiRequest
+    {
+        return new JsonApiRequest((new ServerRequest($method, '/rebound-links/1/relationships/owner'))->withQueryParams($query));
     }
 
     /**
@@ -168,6 +228,21 @@ final class ReboundNoteResource extends AbstractResource
             Str::make('title'),
             BelongsTo::make('owner', 'people')->notSparseField(),
             BelongsTo::make('editor', 'people'),
+        ];
+    }
+}
+
+final class ReboundLinkResource extends AbstractResource
+{
+    public static string $type = 'rebound-links';
+
+    public function fields(): array
+    {
+        return [
+            Id::make(),
+            BelongsTo::make('owner', 'people'),
+            HasMany::make('followers', 'people')->countable(),
+            BelongsTo::make('reviewer', 'people')->writeOnly(),
         ];
     }
 }

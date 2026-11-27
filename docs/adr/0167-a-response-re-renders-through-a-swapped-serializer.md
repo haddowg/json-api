@@ -2,8 +2,8 @@
 
 An adapter that decorates a type's serializer, to rebuild a relation against another
 resolver, could do it only for responses it built itself, so a response a custom action
-returned rendered without the decoration. `withSerializer()` on `DataResponse`, `RelatedResponse`
-and a job-resource `AcceptedResponse` swaps the serializer that renders the resources and keeps every other piece of state, and `RendersRelationsTrait::relationshipCallable()`
+returned rendered without the decoration. `withSerializer()` on `DataResponse`, `RelatedResponse`,
+`IdentifierResponse` and a job-resource `AcceptedResponse` swaps the serializer that renders the resources and keeps every other piece of state, and `RendersRelationsTrait::relationshipCallable()`
 rebuilds one relation's callable with its `notSparseField()` behaviour, so the decorator never
 touches the internal marker. We didn't add a resolver override to the response, because
 included resources take their serializer from the relationships the primary serializer

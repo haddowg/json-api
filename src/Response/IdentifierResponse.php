@@ -39,9 +39,16 @@ final class IdentifierResponse extends AbstractResponse
      */
     private ?\haddowg\JsonApi\Pagination\PageInterface $page = null;
 
+    /**
+     * The serializer the response was built with, once {@see withSerializer()} swaps it:
+     * the relation's countability and write-only rule are still read from it, because a
+     * decorator around a resource does not declare the relation itself.
+     */
+    private ?SerializerInterface $declaringResource = null;
+
     private function __construct(
         private readonly mixed $parent,
-        private readonly SerializerInterface $parentResource,
+        private SerializerInterface $parentResource,
         private readonly string $relationshipName,
         private readonly ?bool $selfCountable = null,
     ) {}
@@ -86,6 +93,28 @@ final class IdentifierResponse extends AbstractResponse
         return $self;
     }
 
+    /**
+     * The serializer the parent renders through.
+     */
+    public function serializer(): SerializerInterface
+    {
+        return $this->parentResource;
+    }
+
+    /**
+     * A copy that renders the same linkage through `$serializer`, keeping the document
+     * members, status, headers, profiles and page. The relation's countability and
+     * write-only rule still come from the resource the response was built with.
+     */
+    public function withSerializer(SerializerInterface $serializer): static
+    {
+        $self = clone $this;
+        $self->declaringResource = $this->declaringResource ?? $this->parentResource;
+        $self->parentResource = $serializer;
+
+        return $self;
+    }
+
     protected function render(ServerInterface $server, JsonApiRequestInterface $request): RenderedDocument
     {
         // A write-only relation's linkage is never echoed back: a mutation of it
@@ -117,9 +146,7 @@ final class IdentifierResponse extends AbstractResponse
             // `?withCount=_self_` here counts the relationship's own linkage, so the
             // relation decides it, not the parent's primary collection.
             countableSelfOverride: $this->selfCountable
-                ?? ($this->parentResource instanceof \haddowg\JsonApi\Resource\AbstractResource
-                    ? $this->parentResource->relationNamed($this->relationshipName)?->isCountable()
-                    : null),
+                ?? $this->declaringResource()?->relationNamed($this->relationshipName)?->isCountable(),
         );
 
         $result = (new DocumentTransformer())->transformRelationshipDocument($transformation)->result;
@@ -131,12 +158,22 @@ final class IdentifierResponse extends AbstractResponse
 
     private function isWriteOnlyMutation(JsonApiRequestInterface $request): bool
     {
-        if (\in_array(\strtoupper($request->getMethod()), ['GET', 'HEAD'], true)
-            || !$this->parentResource instanceof \haddowg\JsonApi\Resource\AbstractResource) {
+        if (\in_array(\strtoupper($request->getMethod()), ['GET', 'HEAD'], true)) {
             return false;
         }
 
-        return $this->parentResource->relationNamed($this->relationshipName)?->isWriteOnlyFor($request) === true;
+        return $this->declaringResource()?->relationNamed($this->relationshipName)?->isWriteOnlyFor($request) === true;
+    }
+
+    private function declaringResource(): ?\haddowg\JsonApi\Resource\AbstractResource
+    {
+        foreach ([$this->declaringResource, $this->parentResource] as $candidate) {
+            if ($candidate instanceof \haddowg\JsonApi\Resource\AbstractResource) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**

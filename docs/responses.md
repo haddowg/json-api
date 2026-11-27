@@ -116,8 +116,10 @@ relation changes its included members as well. Keep the type the wrapped seriali
 renders, because the operation the response answers and its published schema still
 describe that type.
 
-`RelatedResponse` and the job-resource form of `AcceptedResponse` have the same
-`serializer()` and `withSerializer()` pair. A meta-only `AcceptedResponse` has no resource,
+`RelatedResponse`, `IdentifierResponse` and the job-resource form of `AcceptedResponse`
+have the same `serializer()` and `withSerializer()` pair. A rebound `IdentifierResponse`
+still reads the relation's `countable()` and `writeOnly()` rules from the resource it was
+built with, since a decorator around that resource doesn't declare the relation. A meta-only `AcceptedResponse` has no resource,
 so its `serializer()` returns `null` and `withSerializer()` throws a `\LogicException`.
 
 ```php

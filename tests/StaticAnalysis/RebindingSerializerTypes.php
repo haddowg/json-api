@@ -10,6 +10,7 @@ use haddowg\JsonApi\Resource\RendersRelationsTrait;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Response\AcceptedResponse;
 use haddowg\JsonApi\Response\DataResponse;
+use haddowg\JsonApi\Response\IdentifierResponse;
 use haddowg\JsonApi\Response\RelatedResponse;
 use haddowg\JsonApi\Schema\Link\ResourceLinks;
 use haddowg\JsonApi\Serializer\AbstractSerializer;
@@ -48,6 +49,11 @@ final class RebindingSerializerTypes extends AbstractSerializer
         $serializer = $response->serializer();
 
         return $serializer === null ? $response : $response->withSerializer(new self($serializer, $resolver, [$relation->name() => $relation]));
+    }
+
+    public static function rebindLinkage(IdentifierResponse $response, SerializerResolverInterface $resolver, RelationInterface $relation): IdentifierResponse
+    {
+        return $response->withSerializer(new self($response->serializer(), $resolver, [$relation->name() => $relation]));
     }
 
     public function getType(mixed $object): string
