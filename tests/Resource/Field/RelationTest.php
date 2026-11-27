@@ -39,6 +39,7 @@ use haddowg\JsonApi\Tests\Double\StubSerializerResolver;
 use haddowg\JsonApi\Transformer\ResourceTransformation;
 use haddowg\JsonApi\Transformer\ResourceTransformer;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -582,6 +583,64 @@ final class RelationTest extends TestCase
         $relation = BelongsToMany::make('roles', 'roles')->through('App\\Entity\\UserRole')->build();
 
         self::assertSame('App\\Entity\\UserRole', $relation->pivotThrough());
+    }
+
+    #[Test]
+    public function belongsToManyNamesTheSidesOfItsThroughClass(): void
+    {
+        $relation = BelongsToMany::make('peers', 'owners')->through('App\\Entity\\Seat', parent: 'owner', related: 'peer')->build();
+
+        self::assertSame('App\\Entity\\Seat', $relation->pivotThrough());
+        self::assertSame('owner', $relation->pivotParentSide());
+        self::assertSame('peer', $relation->pivotRelatedSide());
+    }
+
+    #[Test]
+    public function belongsToManyNamesOneSideAndLeavesTheOtherToTheAdapter(): void
+    {
+        $relation = BelongsToMany::make('peers', 'owners')->through('App\\Entity\\Seat', related: 'peer')->build();
+
+        self::assertNull($relation->pivotParentSide());
+        self::assertSame('peer', $relation->pivotRelatedSide());
+        self::assertNull(BelongsToMany::make('roles', 'roles')->through('App\\Entity\\UserRole')->build()->pivotRelatedSide());
+    }
+
+    #[Test]
+    public function clearingTheThroughClassClearsItsSides(): void
+    {
+        $relation = BelongsToMany::make('peers', 'owners')->through('App\\Entity\\Seat', parent: 'owner', related: 'peer')->through(null)->build();
+
+        self::assertNull($relation->pivotParentSide());
+        self::assertNull($relation->pivotRelatedSide());
+    }
+
+    /**
+     * @return iterable<string, array{?string, ?string, ?string, string}>
+     */
+    public static function badSides(): iterable
+    {
+        yield 'a side without a class' => [null, 'owner', null, 'Relation "peers" names a side of its link rows without naming their class.'];
+        yield 'an empty side' => ['App\\Entity\\Seat', '', null, 'Relation "peers" names a side of its link rows with an empty string.'];
+        yield 'one member on both sides' => ['App\\Entity\\Seat', 'owner', 'owner', 'Relation "peers" names "owner" as both the parent and the related side of its link rows.'];
+    }
+
+    #[Test]
+    #[DataProvider('badSides')]
+    public function belongsToManyRefusesSidesItCannotUse(?string $through, ?string $parent, ?string $related, string $message): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage($message);
+
+        BelongsToMany::make('peers', 'owners')->through($through, parent: $parent, related: $related);
+    }
+
+    #[Test]
+    public function aMorphToManyTakesNoThroughSides(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('MorphToMany relation "links" names a side of its link rows in through(); name its owner, type and id fields with identifiedByRows() instead.');
+
+        MorphToMany::make('links', ['notes'])->through('App\\Entity\\Link', parent: 'board')->build();
     }
 
     #[Test]

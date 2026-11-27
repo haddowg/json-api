@@ -21,6 +21,10 @@ trait DeclaresPivotFields
 
     protected ?string $pivotThrough = null;
 
+    protected ?string $pivotParentSide = null;
+
+    protected ?string $pivotRelatedSide = null;
+
     /**
      * Declares the pivot (join-table) fields as field definitions. Pass the same
      * field types used for attributes — `Integer::make('position')->required()`,
@@ -61,13 +65,33 @@ trait DeclaresPivotFields
      * Names the class backing the link rows: an opaque class-string the host
      * interprets, such as the association entity a Doctrine adapter reads in place of
      * the one it would detect. Core never interprets it. Pass `null` to clear an
-     * earlier override.
+     * earlier override, along with any side names.
+     *
+     * `$parent` and `$related` name the class's property or association on each side
+     * of a link row: the one pointing back at the parent, and the one pointing at the
+     * member. They are opaque too, and an adapter uses them when the class alone can't
+     * tell its sides apart, such as a row linking a type to itself:
+     * `->through(Seat::class, parent: 'owner', related: 'peer')`.
      *
      * @return static
+     *
+     * @throws \InvalidArgumentException when a side is named without a class, is empty, or both sides name the same member
      */
-    public function through(?string $associationEntity): static
+    public function through(?string $associationEntity, ?string $parent = null, ?string $related = null): static
     {
+        $problem = match (true) {
+            $associationEntity === null && ($parent !== null || $related !== null) => 'names a side of its link rows without naming their class',
+            $parent === '' || $related === '' => 'names a side of its link rows with an empty string',
+            $parent !== null && $parent === $related => \sprintf('names "%s" as both the parent and the related side of its link rows', $parent),
+            default => null,
+        };
+        if ($problem !== null) {
+            throw new \InvalidArgumentException(\sprintf('Relation "%s" %s.', $this->name, $problem));
+        }
+
         $this->pivotThrough = $associationEntity;
+        $this->pivotParentSide = $parent;
+        $this->pivotRelatedSide = $related;
 
         return $this;
     }

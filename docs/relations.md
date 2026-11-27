@@ -423,8 +423,10 @@ never interprets (it stays storage-agnostic), and the host adapter reads as the
 association entity backing the pivot:
 
 ```php
-public function through(?string $associationEntity): static
+public function through(?string $associationEntity, ?string $parent = null, ?string $related = null): static
 public function pivotThrough(): ?string
+public function pivotParentSide(): ?string
+public function pivotRelatedSide(): ?string
 ```
 
 ```php
@@ -437,7 +439,29 @@ BelongsToMany::make('tracks', 'tracks')
 ```
 
 `pivotThrough()` reads it back (`null` when no override was declared). Passing
-`null` clears an earlier override.
+`null` clears an earlier override, and any side names with it.
+
+The class can have more than one property pointing at the same type. A seat linking an
+owner to another owner has two, and an adapter can't tell from the class alone which one
+points back at the parent. `parent:` and `related:` name them, as strings core carries
+without reading, like the class:
+
+```php
+BelongsToMany::make('peers', 'owners')
+    ->fields(Integer::make('rank'))
+    ->through(Seat::class, parent: 'owner', related: 'peer'),
+BelongsToMany::make('followers', 'owners')
+    ->fields(Integer::make('rank'))
+    ->through(Seat::class, parent: 'peer', related: 'owner'),
+```
+
+Either can be left out for the adapter to find. `pivotParentSide()` and
+`pivotRelatedSide()` read them back. Naming a side without a class, naming it with an
+empty string, or naming one member as both sides throws an `\InvalidArgumentException`. A
+`MorphToMany` names its link rows' owner, type and id with `identifiedByRows()`, so it
+refuses side names when it is built. What a name refers to, and whether a wrong one is
+caught, is the adapter's: the Symfony bundle reads Doctrine associations, and the Laravel
+adapter checks them against the Eloquent relation's pivot keys.
 
 `BelongsToMany` extends `HasMany`, so it inherits `minItems()` / `maxItems()` and
 the deduplicated-set apply. The `cannotReplace()` above is a mutation gate covered

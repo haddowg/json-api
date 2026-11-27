@@ -1,0 +1,3 @@
+# through() names the sides of its link rows
+
+A class backing a `belongsToMany`'s link rows can hold more than one property pointing at one type, as a row linking a type to itself does, and an adapter that matched each side by its target guessed and swapped the members of both directions. `through()` takes optional `parent:` and `related:` names for those properties, opaque strings like the class itself, so the author settles what the class can't and each adapter keeps deciding what the names mean and when a wrong one fails. A `MorphToMany` already names its link-row fields with `identifiedByRows()`, so it refuses them.
