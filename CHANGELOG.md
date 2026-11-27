@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.27.0](https://github.com/haddowg/json-api/compare/v2.26.0...v2.27.0) (2026-11-27)
+
+
+### Features
+
+* let an adapter re-render a response through another serializer ([#443](https://github.com/haddowg/json-api/issues/443)) ([c4f2806](https://github.com/haddowg/json-api/commit/c4f2806ca162e8271d5373d102976ad2a1861adf))
+* name the parent and related sides of a through class ([#448](https://github.com/haddowg/json-api/issues/448)) ([a420d10](https://github.com/haddowg/json-api/commit/a420d10b600d9f60f6e8f13bf7017464b489ee3e))
+
+
+### Bug Fixes
+
+* keep a decorated target serializer's id encoder on the stored linkage and included members of an identified relation ([7147466](https://github.com/haddowg/json-api/commit/714746618f9b0e5bef21a0f42620c127b14ae790))
+* lower-case a uuid-shaped stored id when the target serializer has no resource behind it, as the stored id of any other target is ([7147466](https://github.com/haddowg/json-api/commit/714746618f9b0e5bef21a0f42620c127b14ae790))
+* match uuid ids in either case in the in-memory filters ([#447](https://github.com/haddowg/json-api/issues/447)) ([8ae1550](https://github.com/haddowg/json-api/commit/8ae15506454d58329d139619dc817f273960ca13))
+* read a foreign key parent key off the parent as stored when it differs from the wire id only in case ([49455d3](https://github.com/haddowg/json-api/commit/49455d3545faeb71050dbb60245598fc3daa8973))
+* render a uuid-shaped id with no id encoder in lower case on the resource itself, as linkage already does ([49455d3](https://github.com/haddowg/json-api/commit/49455d3545faeb71050dbb60245598fc3daa8973))
+
 ## [2.26.0](https://github.com/haddowg/json-api/compare/v2.25.1...v2.26.0) (2026-11-24)
 
 
