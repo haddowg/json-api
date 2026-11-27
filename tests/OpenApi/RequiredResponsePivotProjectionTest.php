@@ -93,7 +93,32 @@ final class RequiredResponsePivotProjectionTest extends TestCase
     }
 
     #[Test]
-    public function aPivotRelationshipObjectCarriesNoExampleWithoutPivotValues(): void
+    public function aPivotRelationshipObjectExampleCarriesItsPivotAndValidates(): void
+    {
+        $relation = new FakeRelationMetadata(
+            'tags',
+            ['tags'],
+            true,
+            pivotFields: [Integer::make('position')->required()->example(2)->build(), Str::make('note')->readOnly()->example('pinned')->build()],
+            identifierMetaFields: [Str::make('addedVia')->example('editor')->build()],
+        );
+        $document = \json_decode((new OpenApiProjector())->project($this->server($relation))->toJsonString(), false, 512, \JSON_THROW_ON_ERROR);
+        self::assertInstanceOf(\stdClass::class, $document);
+
+        $component = $document->components->schemas->ArticlesTagsRelationship;
+        self::assertEquals(
+            [(object) ['data' => [(object) ['type' => 'tags', 'id' => 'tag-1', 'meta' => (object) ['addedVia' => 'editor', 'pivot' => (object) ['position' => 2, 'note' => 'pinned']]]]]],
+            $component->examples,
+        );
+
+        $validator = new Validator();
+        $validator->resolver()?->registerRaw((object) ['components' => $document->components], self::ROOT);
+        $result = $validator->validate($component->examples[0], (object) ['$ref' => self::ROOT . '#/components/schemas/ArticlesTagsRelationship']);
+        self::assertTrue($result->isValid(), $result->error()?->message() ?? '');
+    }
+
+    #[Test]
+    public function aPivotRelationshipObjectHasNoExampleWhenAPivotValueHasNone(): void
     {
         $schemas = $this->arrAt($this->document(self::tags()), 'components', 'schemas');
 

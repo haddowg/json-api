@@ -1698,8 +1698,10 @@ sort carries the field's description.
 
 [Relations](relations.md) take `describedAs()` as well, and their relationship object's
 schema is exemplified from [`exampleId()`](relations.md#example-ids-for-linkage) or the
-related type's id; a relation builder refuses `example()`. A pivot relation's relationship
-object has no example, as its identifiers require a `meta.pivot` the id alone can't fill. Beyond fields, every documentable element
+related type's id; a relation builder refuses `example()`. A pivot relation's example member
+also carries its `meta.pivot`, and any declared identifier meta, built from each field's
+example as the operation examples build them, so it has no example when one of those
+fields has none. Beyond fields, every documentable element
 gets a **generated default description** the author may override declaratively: a type's
 resource object via its `description()`, and each CRUD / related / relationship operation
 via a per-operation description override — the projector emits the author's value when

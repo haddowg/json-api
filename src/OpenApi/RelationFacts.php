@@ -430,8 +430,9 @@ final class RelationFacts
      * to-one and `{data: [{type, id}]}` for a to-many, of its first related type. The id
      * is the one the operation examples show, that type's `Id` example, else the
      * relation's {@see DeclaresRelationExampleId::exampleId()}. `null` when neither gives
-     * an id, and for a pivot-backed relation, whose identifiers require a `meta.pivot` the
-     * example has no values for.
+     * an id, and for a pivot-backed relation, whose identifiers require a `meta.pivot` this
+     * example has no values for: {@see ExampleDocumentBuilder::relationshipObject()} builds
+     * that one.
      *
      * @param array<string, TypeMetadataInterface> $byType
      *
