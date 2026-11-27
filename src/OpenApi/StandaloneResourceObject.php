@@ -56,7 +56,7 @@ final class StandaloneResourceObject
         foreach ($metadata->relations() as $relation) {
             $identifierMeta = self::identifierMeta($relation, $schemas);
             if ($identifierMeta !== null) {
-                $relationships[$relation->name()] = Schema::ofType('object')->withProperty('data', self::linkage($relation, $identifierMeta));
+                $relationships[$relation->name()] = Schema::ofType('object')->withProperty('data', self::linkage($relation, $identifierMeta, RelationFacts::hasPivot($relation)));
             }
         }
 
@@ -85,7 +85,8 @@ final class StandaloneResourceObject
     /**
      * A linkage identifier's `meta` for `$relation`: its declared identifier meta, a closed
      * object listing `pivot` among its properties when the relation has a pivot too, else
-     * the pivot alone. `null` when the relation declares neither.
+     * the pivot alone. `null` when the relation declares neither. Every member of a pivot
+     * relation's linkage renders its `pivot`, so the object requires it.
      */
     private static function identifierMeta(RelationMetadataInterface $relation, SchemaProjector $schemas): ?Schema
     {
@@ -96,22 +97,28 @@ final class StandaloneResourceObject
             $meta = $schemas->projectReadObject(RelationFacts::identifierMetaFields($relation))
                 ->withAdditionalProperties($schemas->additionalMembers(RelationFacts::identifierMetaAdditional($relation)));
 
-            return $pivot === null ? $meta : $meta->withProperty('pivot', $pivot);
+            if ($pivot === null) {
+                return $meta;
+            }
+            $required = $meta->get('required');
+
+            return $meta->withProperty('pivot', $pivot)
+                ->withRequired([...(\is_array($required) ? \array_values(\array_filter($required, \is_string(...))) : []), 'pivot']);
         }
 
-        return $pivot === null ? null : Schema::ofType('object')->withProperty('pivot', $pivot);
+        return $pivot === null ? null : Schema::ofType('object')->withProperty('pivot', $pivot)->withRequired(['pivot']);
     }
 
     /**
-     * The relationship's `data`: identifiers whose `meta` is `$meta`, a list for a to-many
-     * and one or `null` for a to-one.
+     * The relationship's `data`: identifiers whose `meta` is `$meta`, required when
+     * `$metaRequired`, a list for a to-many and one or `null` for a to-one.
      */
-    private static function linkage(RelationMetadataInterface $relation, Schema $meta): Schema
+    private static function linkage(RelationMetadataInterface $relation, Schema $meta, bool $metaRequired): Schema
     {
-        $identifier = Schema::ofType('object')->withProperty('meta', $meta);
+        $required = $metaRequired ? ['meta'] : [];
 
         return $relation->isToMany()
-            ? Schema::ofType('array')->withItems($identifier)
-            : Schema::create()->withType('object', nullable: true)->withProperty('meta', $meta);
+            ? Schema::ofType('array')->withItems(Schema::ofType('object')->withProperty('meta', $meta)->withRequired($required))
+            : Schema::create()->withType('object', nullable: true)->withProperty('meta', $meta)->withRequired($required);
     }
 }

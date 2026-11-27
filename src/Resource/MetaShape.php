@@ -371,7 +371,7 @@ final readonly class MetaShape
 
     /**
      * What is wrong with a rendered object against the declaration: a member declared
-     * `required()` missing, a member it does not declare on a closed object, or a value of
+     * `required()` missing where every read renders it, a member it does not declare on a closed object, or a value of
      * the wrong JSON type, an extra member's checked against the entry's value field. A
      * member in `$alsoAllowed`, such as a collection's `page`, is always allowed. Empty when
      * it conforms, and always for an empty declaration.
@@ -394,7 +394,8 @@ final readonly class MetaShape
             $name = $field->name();
             $declared[$name] = true;
             if (!\array_key_exists($name, $rendered)) {
-                if ($schemas->isRequired($field, true)) {
+                // A member a request may hide or a read never renders is not missing.
+                if ($schemas->isRequired($field, true) && !$field->isHidden() && !$field->isWriteOnly() && !$field->hasConditionalReadVisibility()) {
                     $violations[] = \sprintf('the required member "%s" is missing', $name);
                 }
                 continue;

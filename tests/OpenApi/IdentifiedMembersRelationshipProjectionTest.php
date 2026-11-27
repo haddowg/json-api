@@ -64,7 +64,7 @@ final class IdentifiedMembersRelationshipProjectionTest extends TestCase
 
         $items = $this->arrAt($document, 'components', 'schemas', 'ArticlesCompaniesRelationship', 'properties', 'data', 'items');
         self::assertSame(
-            ['type' => 'object', 'properties' => ['meta' => ['type' => 'object', 'properties' => ['pivot' => ['$ref' => '#/components/schemas/ArticlesCompaniesPivot']]]]],
+            ['type' => 'object', 'properties' => ['meta' => ['type' => 'object', 'properties' => ['pivot' => ['$ref' => '#/components/schemas/ArticlesCompaniesPivot']], 'required' => ['pivot']]], 'required' => ['meta']],
             $this->arrAt($items, 'allOf', '1'),
         );
         self::assertArrayHasKey('oneOf', $this->arrAt($items, 'allOf', '0'));

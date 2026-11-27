@@ -217,6 +217,20 @@ final class ExampleDocumentBuilder
     }
 
     /**
+     * The example of a pivot-backed relation's relationship object: `{data: [<member>]}`,
+     * its member carrying the `meta.pivot` and declared identifier meta a read renders.
+     * `null` when the member has no id or a value it renders has no example.
+     *
+     * @return array{data: array<string, mixed>|list<array<string, mixed>>}|null
+     */
+    public function relationshipObject(TypeMetadataInterface $owner, RelationMetadataInterface $relation): ?array
+    {
+        [$linkage] = $this->attempt(fn(): array|false => $this->linkage($owner, $relation, RepresentationContext::Read));
+
+        return \is_array($linkage) ? ['data' => $linkage] : null;
+    }
+
+    /**
      * A relationship mutation's request document: the linkage to write. A full
      * replacement (`$replacing`) whose one-member linkage falls outside the relation's
      * item bounds has no example.

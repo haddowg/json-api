@@ -326,7 +326,9 @@ validates and hydrates its `data.meta` exactly as a create of that type does.
 In debug mode an adapter checks every rendered resource object's `meta` against its type's
 declaration, and every linkage identifier's `meta` against its relation's declared identifier
 meta and pivot fields, and throws `ResourceMetaMismatch` for a missing required member, an
-undeclared member or a value of the wrong JSON type. In production nothing is checked.
+undeclared member or a value of the wrong JSON type. A required member counts as missing
+only when every read renders it, so a write-only one, or one hidden by a predicate, may be
+absent. In production nothing is checked.
 
 ## Opening a declared object: `AdditionalProperties`
 
