@@ -212,6 +212,15 @@ comparison (`like` is a case-insensitive `stripos`, matching what a SQL
 prefix/suffix variants, `LIKE '…%'` / `LIKE '%…'`); a database adapter translates
 the same operator strings into its own dialect.
 
+### A negated filter leaves out a null column
+
+`Where` with `!=` or `<>`, `WhereNotIn` and `WhereIdNotIn` match only rows whose column holds
+another value. A row whose column is `null` never matches them, as SQL's `<>` and `NOT IN`
+leave it out, so `filter[status]` declared with `!=` and sent `draft` returns the rows whose
+status is set to something else. That holds at the leaf of a `->through()` path, of
+`WhereThrough` and on a pivot row too. An empty `WhereNotIn` list still adds no condition.
+To keep the null rows as well, group the filter with a `WhereNull` in a `WhereAny`.
+
 ### A uuid value matches in either case
 
 A column may keep a uuid in capitals while the id that names it renders in lower case, so an

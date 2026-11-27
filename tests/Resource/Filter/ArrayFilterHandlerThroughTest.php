@@ -128,6 +128,20 @@ final class ArrayFilterHandlerThroughTest extends TestCase
     }
 
     #[Test]
+    public function aNegatedLeafNeverMatchesANullValue(): void
+    {
+        $rows = [
+            ['id' => '1', 'campaign' => ['id' => 'c1', 'name' => null], 'templates' => [], 'brand' => null],
+            ['id' => '2', 'campaign' => ['id' => 'c2', 'name' => 'Summer'], 'templates' => [], 'brand' => null],
+            ['id' => '3', 'campaign' => ['id' => 'c3', 'name' => 'Spring'], 'templates' => [], 'brand' => null],
+        ];
+
+        self::assertSame(['2'], $this->apply(WhereThrough::make('name', 'campaign.name')->operator('<>'), 'Spring', $rows));
+        self::assertSame(['2'], $this->apply(Where::make('campaignName', 'name', '!=')->through('campaign'), 'Spring', $rows));
+        self::assertSame(['2'], $this->apply(\haddowg\JsonApi\Resource\Filter\WhereNotIn::make('campaignName', 'name')->through('campaign'), 'Spring', $rows));
+    }
+
+    #[Test]
     public function aRelatedIdThatIsNoUuidComparesExactly(): void
     {
         $rows = [['id' => '1', 'campaign' => null, 'templates' => [['id' => 'Plain']], 'brand' => null]];
