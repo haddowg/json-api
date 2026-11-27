@@ -107,15 +107,26 @@ final readonly class ForeignKey
     /**
      * The id `$parent` is stored under, which the foreign key holds: its wire id from
      * `$serializer`, decoded through the id encoder its resource declares, if any. A
-     * serializer decorating a resource reaches it through its own resolver.
+     * serializer decorating a resource reaches it through its own resolver. A uuid-like
+     * key renders in lower case, so one stored in another case is read off the parent as
+     * it is stored.
      */
     public static function parentKey(SerializerInterface $serializer, object $parent): mixed
     {
         $wireId = $serializer->getId($parent);
         foreach (RegisteredResource::of($serializer, $serializer->getType($parent))?->allFields() ?? [] as $field) {
-            if ($field instanceof Id) {
-                return $field->encoder()?->decode($wireId) ?? $wireId;
+            if (!$field instanceof Id) {
+                continue;
             }
+
+            $encoder = $field->encoder();
+            if ($encoder !== null) {
+                return $encoder->decode($wireId) ?? $wireId;
+            }
+
+            $stored = Accessor::get($parent, $field->column() ?? $field->name());
+
+            return \is_string($stored) && $stored !== $wireId && StoredIdForms::comparable($stored) === $wireId ? $stored : $wireId;
         }
 
         return $wireId;
