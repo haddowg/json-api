@@ -280,8 +280,11 @@ top-level `meta`, alongside any intrinsic meta the type's serializer emits. Core
 stays storage-agnostic: it carries the field definitions, and the host adapter
 (the Symfony bundle's Doctrine adapter) reads the join row and supplies the typed
 values it renders under `pivot`. The host renders every pivot field except a hidden or
-write-only one, on every member, `null` when the join row holds no value. That is what
-the projected `<Type><Rel>Pivot` schema promises.
+write-only one, on every member, `null` when the join row holds no value. A member whose
+pivot fields the request hides all of still carries `"pivot": {}`, so every member of the
+linkage has `meta.pivot`. That is what the projected schema promises: each response
+identifier requires `meta` and its `pivot`, and `<Type><Rel>Pivot` requires each field
+whose visibility doesn't depend on the request.
 
 `readablePivotFields()` is the request-independent list the OpenAPI schema documents.
 It drops only the unconditionally hidden and write-only fields, so a field declared
@@ -767,7 +770,8 @@ link row its stored fields are read from:
 The wire shape is a `BelongsToMany`'s. Each identifier renders its readable fields as
 `meta.pivot`, each stored field read off the row with its column and cast by the field,
 `null` when the row holds nothing, and a write carries the writable ones in the same
-`meta.pivot`. `identifierMeta()` members sit beside `pivot` in the identifier's `meta`.
+`meta.pivot`. When the request hides every pivot field, `pivot` renders as `{}`.
+`identifierMeta()` members sit beside `pivot` in the identifier's `meta`.
 Declaring pivot fields without `identifiedByRows()` or `identifiedBy()` fails the build,
 because only the link rows map a member to its type and id, and a member of a relation with stored pivot fields
 that arrives without its row throws a `\LogicException`.

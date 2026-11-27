@@ -56,6 +56,15 @@ final class StandaloneResourceObjectTest extends TestCase
     }
 
     #[Test]
+    public function aPivotRelationsLinkageRequiresMetaAndItsPivot(): void
+    {
+        $items = self::member(self::project('bookings'), 'properties', 'relationships', 'properties', 'rooms', 'properties', 'data', 'items');
+
+        self::assertSame(['meta'], $items['required'] ?? null);
+        self::assertSame(['view', 'pivot'], self::member($items, 'properties', 'meta', 'required'));
+    }
+
+    #[Test]
     public function theTypedObjectsMatchTheOpenApiDocumentsComponents(): void
     {
         $components = self::member((new OpenApiProjector())->project(self::server())->toArray(), 'components', 'schemas');

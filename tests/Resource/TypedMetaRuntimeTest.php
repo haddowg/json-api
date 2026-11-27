@@ -213,6 +213,31 @@ final class TypedMetaRuntimeTest extends TestCase
     }
 
     #[Test]
+    public function theRenderedCheckExpectsNoPivotMemberAReadNeverRendersOrMayHide(): void
+    {
+        $resource = new class extends AbstractResource {
+            public static string $type = 'lists';
+
+            public function fields(): array
+            {
+                return [Id::make(), BelongsToMany::make('entries', 'entries')->fields(
+                    Integer::make('position')->required()->writeOnly(),
+                    Integer::make('rank')->required()->hidden(static fn(): bool => true),
+                    Integer::make('weight')->required(),
+                )];
+            }
+        };
+        $document = ['data' => ['type' => 'lists', 'id' => '1', 'relationships' => [
+            'entries' => ['data' => [['type' => 'entries', 'id' => '1', 'meta' => ['pivot' => []]]]],
+        ]]];
+
+        self::assertSame(
+            ['the linkage of "lists" "1" relationship "entries": in its pivot, the required member "weight" is missing'],
+            RenderedMeta::violations($document, static fn(): object => $resource),
+        );
+    }
+
+    #[Test]
     public function theRenderedCheckLeavesALinkageThatRendersNoPivotAlone(): void
     {
         $resource = new class extends AbstractResource {
