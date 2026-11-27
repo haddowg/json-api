@@ -280,8 +280,11 @@ top-level `meta`, alongside any intrinsic meta the type's serializer emits. Core
 stays storage-agnostic: it carries the field definitions, and the host adapter
 (the Symfony bundle's Doctrine adapter) reads the join row and supplies the typed
 values it renders under `pivot`. The host renders every pivot field except a hidden or
-write-only one, on every member, `null` when the join row holds no value. That is what
-the projected `<Type><Rel>Pivot` schema promises.
+write-only one, on every member, `null` when the join row holds no value. A member whose
+pivot fields the request hides all of still carries `"pivot": {}`, so every member of the
+linkage has `meta.pivot`. That is what the projected schema promises: each response
+identifier requires `meta` and its `pivot`, and `<Type><Rel>Pivot` requires each field
+whose visibility doesn't depend on the request.
 
 `readablePivotFields()` is the request-independent list the OpenAPI schema documents.
 It drops only the unconditionally hidden and write-only fields, so a field declared

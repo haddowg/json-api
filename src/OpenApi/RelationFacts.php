@@ -430,7 +430,8 @@ final class RelationFacts
      * to-one and `{data: [{type, id}]}` for a to-many, of its first related type. The id
      * is the one the operation examples show, that type's `Id` example, else the
      * relation's {@see DeclaresRelationExampleId::exampleId()}. `null` when neither gives
-     * an id.
+     * an id, and for a pivot-backed relation, whose identifiers require a `meta.pivot` the
+     * example has no values for.
      *
      * @param array<string, TypeMetadataInterface> $byType
      *
@@ -439,7 +440,7 @@ final class RelationFacts
     public static function relationshipExample(RelationMetadataInterface $relation, array $byType): ?array
     {
         $type = $relation->relatedTypes()[0] ?? null;
-        if ($type === null) {
+        if ($type === null || self::hasPivot($relation)) {
             return null;
         }
 

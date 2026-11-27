@@ -91,7 +91,7 @@ final class GeneratorContract
      * per release; see the class docblock for what warrants it and `docs/openapi.md`
      * for the discipline around it.
      */
-    public const CONTRACT = 47;
+    public const CONTRACT = 48;
 
     /**
      * The contract a document carries when it uses none of the scoped structures below:
@@ -146,7 +146,7 @@ final class GeneratorContract
      * refusing `null` for a required to-one's in each write where the relation is required,
      * the relationship object then narrowed beside its reference in an `allOf`.
      */
-    public const BASELINE = 46;
+    public const BASELINE = 48;
 
     /**
      * The contract that introduced raw action responses: media types other than JSON:API

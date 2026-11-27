@@ -241,12 +241,15 @@ sketch:
   through `<Type><Rel>WriteRelationship`, and the relationship `PATCH` / `POST` / `DELETE`
   bodies through `<Type><Rel>RelationshipRequest`. Both are closed with
   `additionalProperties: false`, unless an `AdditionalProperties` entry among the pivot
-  fields opens them, to any value or to the schema of its `of()` field.
+  fields opens them, to any value or to the schema of its `of()` field. A host renders
+  `meta.pivot` on every member of the response linkage, `{}` when the request hides every
+  pivot field, so each response identifier lists `meta` in `required` and its `meta` lists
+  `pivot`. A request identifier may leave both out.
 - **Declared identifier meta.** A relation whose `identifierMeta()` declares its members
   (`fields:`) gets a `<Type><Rel>IdentifierMeta` component, projected under the read rules
   `<Type><Rel>Pivot` follows, and each response linkage identifier's `meta` references it.
   The object is closed unless an `AdditionalProperties` entry opens it. With a pivot too,
-  `pivot` is one of its properties, referencing `<Type><Rel>Pivot`. A polymorphic
+  `pivot` is one of its required properties, referencing `<Type><Rel>Pivot`. A polymorphic
   relation narrows its whole identifier union the same way. Requests never carry these
   members: they are read-only. A relation that declares none keeps an open `meta`.
 - **Links, per context.** Each place a link renders has one shared component listing the
@@ -1695,7 +1698,8 @@ sort carries the field's description.
 
 [Relations](relations.md) take `describedAs()` as well, and their relationship object's
 schema is exemplified from [`exampleId()`](relations.md#example-ids-for-linkage) or the
-related type's id; a relation builder refuses `example()`. Beyond fields, every documentable element
+related type's id; a relation builder refuses `example()`. A pivot relation's relationship
+object has no example, as its identifiers require a `meta.pivot` the id alone can't fill. Beyond fields, every documentable element
 gets a **generated default description** the author may override declaratively: a type's
 resource object via its `description()`, and each CRUD / related / relationship operation
 via a per-operation description override — the projector emits the author's value when
@@ -1969,7 +1973,8 @@ An adapter's standalone per-type JSON Schema, one self-contained resource object
 builds on [`StandaloneResourceObject::project()`](../src/OpenApi/StandaloneResourceObject.php)
 and types the same objects inline: `meta` as `<Type>ResourceMeta`, and under
 `relationships.<name>.data` each identifier's `meta` as `<Type><Rel>IdentifierMeta`, or as a
-`pivot` of `<Type><Rel>Pivot` alone. A type or relation declaring none keeps an open object.
+`pivot` of `<Type><Rel>Pivot` alone. A pivot relation's identifiers require `meta` and its
+`pivot`, as in the document. A type or relation declaring none keeps an open object.
 A request's top-level `meta` and a write's `data.meta` belong to request documents, which
 that export does not describe.
 

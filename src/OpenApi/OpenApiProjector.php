@@ -1375,11 +1375,14 @@ final class OpenApiProjector
             // under each response linkage identifier's `meta` beside any `pivot`.
             // The object is closed, so a pivot-backed relation's `pivot` is one of its
             // properties rather than a sibling `allOf` branch, which the closed branch would refuse.
+            // A response renders `pivot` on every member, so it is required.
             if (RelationFacts::hasIdentifierMeta($relation)) {
                 $identifierMeta = $this->schemaProjector->projectReadObject(RelationFacts::identifierMetaFields($relation), $collector)
                     ->withAdditionalProperties($this->schemaProjector->additionalMembers(RelationFacts::identifierMetaAdditional($relation), false, true, $collector));
                 if (RelationFacts::hasPivot($relation)) {
-                    $identifierMeta = $identifierMeta->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . 'Pivot'));
+                    $required = $identifierMeta->get('required');
+                    $identifierMeta = $identifierMeta->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . 'Pivot'))
+                        ->withRequired([...(\is_array($required) ? \array_values(\array_filter($required, \is_string(...))) : []), 'pivot']);
                 }
                 $schemas[$relBase . 'IdentifierMeta'] = $identifierMeta;
             }
@@ -2642,11 +2645,18 @@ final class OpenApiProjector
      * `identifierMeta()` resolver declares `$ref` the relation's `<Type><Rel>IdentifierMeta`
      * component, a closed object which lists `pivot` among its properties when the relation
      * has a pivot too. A request never carries them, as they are read-only.
+     *
+     * A response renders `meta.pivot` on every member of a pivot-backed relation's linkage,
+     * `{}` when the request hides every pivot field, so a response requires both `meta` and
+     * its `pivot`. A request may leave them out.
      */
     private function linkageMetaNarrowing(RelationMetadataInterface $relation, string $relBase, bool $writing): ?Schema
     {
-        $pivot = RelationFacts::hasPivot($relation)
-            ? Schema::ofType('object')->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . ($writing ? 'WritePivot' : 'Pivot')))
+        $hasPivot = RelationFacts::hasPivot($relation);
+        $pivot = $hasPivot
+            ? Schema::ofType('object')
+                ->withProperty('pivot', Schema::ref('#/components/schemas/' . $relBase . ($writing ? 'WritePivot' : 'Pivot')))
+                ->withRequired($writing ? [] : ['pivot'])
             : null;
         $declared = !$writing && RelationFacts::hasIdentifierMeta($relation)
             ? Schema::ref('#/components/schemas/' . $relBase . 'IdentifierMeta')
@@ -2658,7 +2668,9 @@ final class OpenApiProjector
             default => null,
         };
 
-        return $meta === null ? null : Schema::ofType('object')->withProperty('meta', $meta);
+        return $meta === null ? null : Schema::ofType('object')
+            ->withProperty('meta', $meta)
+            ->withRequired(!$writing && $hasPivot ? ['meta'] : []);
     }
 
     /**
