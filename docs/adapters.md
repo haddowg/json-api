@@ -164,6 +164,14 @@ read, so a hidden target never matches; ask the gate about
 `ThroughReadAccess::hopsOfRequested()` first, which refuses a type the caller may not read
 at all.
 
+A filter that compares ids matches a uuid-shaped id in either case, because a column may
+keep a uuid in capitals while its wire id is lower case. That covers `WhereIdIn` and
+`WhereIdNotIn`, a `WhereThrough` or `WhereThroughIn` whose path ends on a relationship,
+and any filter declared with `->through()` whose leaf is the reached type's id. Every
+other id, and every value a filter compares with a plain column, still compares exactly.
+A database adapter matches the same way, for example by binding both cases of a
+uuid-shaped key.
+
 ### ArraySortHandler — one cascading comparator
 
 `ArraySortHandler::apply` honours the single-call ordered-list contract with one

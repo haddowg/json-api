@@ -386,15 +386,27 @@ abstract readonly class AbstractRelationValue extends AbstractFieldValue impleme
             static fn(?string $id): bool => $id !== null,
         ));
 
-        if ($mode === Mode::Add) {
-            // Append, deduplicating so add is idempotent (set semantics).
-            $next = \array_values(\array_unique([...$current, ...$incoming]));
+        // A uuid-like id names the same member in either case.
+        $key = static fn(mixed $id): string => match (true) {
+            \is_string($id) => StoredIdForms::comparable($id),
+            \is_scalar($id), $id instanceof \Stringable => (string) $id,
+            default => "\0" . \get_debug_type($id) . "\0" . (\is_object($id) ? \spl_object_id($id) : \serialize($id)),
+        };
 
-            return Accessor::set($model, $column, $next);
+        if ($mode === Mode::Add) {
+            // Append, deduplicating so add is idempotent (set semantics), keeping the
+            // case the set already holds a member in.
+            $next = [];
+            foreach ([...$current, ...$incoming] as $id) {
+                $next[$key($id)] ??= $id;
+            }
+
+            return Accessor::set($model, $column, \array_values($next));
         }
 
         // Mode::Remove — subtract the incoming ids from the existing set.
-        $next = \array_values(\array_filter($current, static fn(string $id): bool => !\in_array($id, $incoming, true)));
+        $gone = \array_flip(\array_map($key, $incoming));
+        $next = \array_values(\array_filter($current, static fn(mixed $id): bool => !\is_string($id) || !isset($gone[$key($id)])));
 
         return Accessor::set($model, $column, $next);
     }
