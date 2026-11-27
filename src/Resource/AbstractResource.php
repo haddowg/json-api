@@ -1006,7 +1006,7 @@ abstract class AbstractResource implements SerializerInterface, HydratorInterfac
         if ($relation instanceof \haddowg\JsonApi\Resource\Field\MorphToMany && $relation->storesIdentifiers()) {
             return \array_map(
                 static fn(array $pair): array => $resolver !== null && $resolver->hasSerializerFor($pair[0])
-                    ? [$pair[0], \haddowg\JsonApi\Resource\Field\Internal\StoredPair::wireId($resolver->serializerFor($pair[0]), $pair[1])]
+                    ? [$pair[0], \haddowg\JsonApi\Resource\Field\Internal\StoredPair::wireId($resolver->serializerFor($pair[0]), $pair[0], $pair[1], $resolver)]
                     : $pair,
                 $relation->storedIdentifierList($domainObject, $request),
             );

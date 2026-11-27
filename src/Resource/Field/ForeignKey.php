@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace haddowg\JsonApi\Resource\Field;
 
 use haddowg\JsonApi\Resource\AbstractResource;
+use haddowg\JsonApi\Resource\Internal\RegisteredResource;
 use haddowg\JsonApi\Resource\SerializerResolverInterface;
 use haddowg\JsonApi\Serializer\SerializerInterface;
 
@@ -105,16 +106,15 @@ final readonly class ForeignKey
 
     /**
      * The id `$parent` is stored under, which the foreign key holds: its wire id from
-     * `$serializer`, decoded through the id encoder its resource declares, if any.
+     * `$serializer`, decoded through the id encoder its resource declares, if any. A
+     * serializer decorating a resource reaches it through its own resolver.
      */
     public static function parentKey(SerializerInterface $serializer, object $parent): mixed
     {
         $wireId = $serializer->getId($parent);
-        if ($serializer instanceof AbstractResource) {
-            foreach ($serializer->allFields() as $field) {
-                if ($field instanceof Id) {
-                    return $field->encoder()?->decode($wireId) ?? $wireId;
-                }
+        foreach (RegisteredResource::of($serializer, $serializer->getType($parent))?->allFields() ?? [] as $field) {
+            if ($field instanceof Id) {
+                return $field->encoder()?->decode($wireId) ?? $wireId;
             }
         }
 

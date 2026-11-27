@@ -120,7 +120,7 @@ final class IdentifierResponse extends AbstractResponse
         // A write-only relation's linkage is never echoed back: a mutation of it
         // answers `204`, which the spec allows when the result matches the request.
         // A read still falls through and fails as an unknown relationship.
-        if ($this->isWriteOnlyMutation($request)) {
+        if ($this->isWriteOnlyMutation($request, $server)) {
             return new RenderedDocument([], 204, hasBody: false);
         }
 
@@ -146,7 +146,7 @@ final class IdentifierResponse extends AbstractResponse
             // `?withCount=_self_` here counts the relationship's own linkage, so the
             // relation decides it, not the parent's primary collection.
             countableSelfOverride: $this->selfCountable
-                ?? $this->declaringResource()?->relationNamed($this->relationshipName)?->isCountable(),
+                ?? $this->declaringResource($server)?->relationNamed($this->relationshipName)?->isCountable(),
         );
 
         $result = (new DocumentTransformer())->transformRelationshipDocument($transformation)->result;
@@ -156,24 +156,33 @@ final class IdentifierResponse extends AbstractResponse
         return new RenderedDocument($result, 200);
     }
 
-    private function isWriteOnlyMutation(JsonApiRequestInterface $request): bool
+    private function isWriteOnlyMutation(JsonApiRequestInterface $request, ServerInterface $server): bool
     {
         if (\in_array(\strtoupper($request->getMethod()), ['GET', 'HEAD'], true)) {
             return false;
         }
 
-        return $this->declaringResource()?->relationNamed($this->relationshipName)?->isWriteOnlyFor($request) === true;
+        return $this->declaringResource($server)?->relationNamed($this->relationshipName)?->isWriteOnlyFor($request) === true;
     }
 
-    private function declaringResource(): ?\haddowg\JsonApi\Resource\AbstractResource
+    /**
+     * The Resource declaring the relation: the serializer the response was built with,
+     * or the Resource registered for the parent's type when that serializer decorates it.
+     */
+    private function declaringResource(ServerInterface $server): ?\haddowg\JsonApi\Resource\AbstractResource
     {
         foreach ([$this->declaringResource, $this->parentResource] as $candidate) {
             if ($candidate instanceof \haddowg\JsonApi\Resource\AbstractResource) {
                 return $candidate;
             }
         }
+        $serializer = $this->declaringResource ?? $this->parentResource;
 
-        return null;
+        return \haddowg\JsonApi\Resource\Internal\RegisteredResource::of(
+            $serializer,
+            \is_object($this->parent) ? $serializer->getType($this->parent) : null,
+            $server instanceof \haddowg\JsonApi\Resource\SerializerResolverInterface ? $server : null,
+        );
     }
 
     /**
