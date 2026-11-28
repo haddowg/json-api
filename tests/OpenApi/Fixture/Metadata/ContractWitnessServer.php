@@ -540,8 +540,9 @@ final class ContractWitnessServer
                 new UriFieldNameRelationMetadata(new FakeRelationMetadata('publisher', ['people'], false), 'published-by'),
                 // Relationship-only: no related endpoint, so no related document envelope.
                 new FakeRelationMetadata('cover', ['images'], false, relatedEndpoint: false),
-                // Mutation-locked: read-only linkage, omitted from the update request.
-                new FakeRelationMetadata('locked', ['people'], true, allowsReplace: false, allowsAdd: false, allowsRemove: false),
+                // Mutation-locked: read-only linkage, omitted from the update request. Its
+                // declared identifier meta types its reads, and no atomic result carries it.
+                new FakeRelationMetadata('locked', ['people'], true, allowsReplace: false, allowsAdd: false, allowsRemove: false, identifierMetaFields: $identifierMeta ? [Str::make('lockedBy')->example('editor')->build()] : []),
                 // Polymorphic to-many with its related endpoint exposed — the one shape
                 // that needs a per-relation related collection.
                 new FakeRelationMetadata('attachments', ['images', 'videos'], true, identifierMetaFields: $identifierMeta ? [Integer::make('order')->example(1)->build()] : []),

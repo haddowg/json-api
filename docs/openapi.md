@@ -286,6 +286,12 @@ sketch:
   An `AtomicResult`'s `data` is the `anyOf` of the returned resource, discriminated over
   `<Type>Resource`, and the returned linkage, discriminated over
   `<Type>ResourceIdentifier`, since a resource with no attributes is also an identifier.
+  A relation that types its identifiers' `meta`, with pivot fields or declared identifier
+  meta, adds its own branch instead: the linkage its relationship endpoint returns, so a
+  pivot relation's members require `meta.pivot` there too. A result does not name the
+  operation that produced it, so each such relation is one more branch of the `anyOf`,
+  emitted when one of its relationship operations can run. A type that only those
+  relations link to is left out of the shared identifier union.
 - **Pagination, filters, sorts, includes.** A collection `GET` advertises its `page[…]`
   parameters (per the resolved paginator kind), its declared `filter[…]` value schemas,
   its `sort` keys (and the patterns of its [sort families](#sort-families-x-sort-families)), and `include` — the last only when the type actually exposes an
