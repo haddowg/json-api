@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.28.0](https://github.com/haddowg/json-api/compare/v2.27.0...v2.28.0) (2026-11-28)
+
+
+### Features
+
+* give a pivot relation's relationship object an example carrying its meta.pivot, built from each pivot field's example ([fe7a883](https://github.com/haddowg/json-api/commit/fe7a8838269efde550bd37a79a424bc1bbe56e58))
+* require meta and meta.pivot on every response linkage identifier of a relation declaring pivot fields, raising every document to generator contract 48 ([fe7a883](https://github.com/haddowg/json-api/commit/fe7a8838269efde550bd37a79a424bc1bbe56e58))
+* type a relationship operation's atomic result with its relation's response linkage, requiring meta.pivot on a pivot relation's members ([3ba8aab](https://github.com/haddowg/json-api/commit/3ba8aabd0a044674df8092f5873b32c3b03bc9ff))
+
+
+### Bug Fixes
+
+* leave rows whose column is null out of !=, &lt;&gt;, WhereNotIn and WhereIdNotIn in the in-memory filter handler, as SQL does ([7b21276](https://github.com/haddowg/json-api/commit/7b21276305c412c984a5d876a280e8a7bb2e4103))
+* match a uuid-shaped value in either case on an equality filter in the in-memory filter handler ([41903f3](https://github.com/haddowg/json-api/commit/41903f3f8691f6dd5c2434ebd14293f876c35c8f))
+* render an identified MorphToMany's empty meta.pivot as an object rather than an empty list ([fe7a883](https://github.com/haddowg/json-api/commit/fe7a8838269efde550bd37a79a424bc1bbe56e58))
+* stop the rendered meta check reporting a required member that is write-only or hidden for the request as missing ([fe7a883](https://github.com/haddowg/json-api/commit/fe7a8838269efde550bd37a79a424bc1bbe56e58))
+
 ## [2.27.0](https://github.com/haddowg/json-api/compare/v2.26.0...v2.27.0) (2026-11-27)
 
 
