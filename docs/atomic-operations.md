@@ -70,7 +70,9 @@ request order. Per the spec a result object carries only **`data`** and/or
 `update` the server fully applied with no body — contributes an **empty result
 object** `{}`. A relationship operation whose type declares a
 [meta-only document](links-and-meta.md#a-relationship-writes-meta-only-document) for it
-contributes a result carrying only that `meta`
+contributes a result carrying only that `meta`. Any other relationship operation's
+result carries the linkage its relationship endpoint would return, with each member's
+`meta.pivot` for a pivot relation
 ([`AtomicResult`](../src/Atomic/AtomicResult.php),
 [`AtomicResultsResponse`](../src/Response/AtomicResultsResponse.php)). The response
 advertises the extension on its `Content-Type` `ext` parameter and in the document's

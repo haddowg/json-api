@@ -1685,7 +1685,8 @@ final class OpenApiProjector
             ->withOneOf($branches);
 
         $schemas['AtomicOperationsRequest'] = $this->atomicOperationsRequestSchema();
-        $schemas['AtomicResult'] = $this->atomicResultSchema(\array_values(\array_unique([...$adds, ...$updates])), $linkageTypes);
+        [$plainLinkageTypes, $typedLinkage] = $this->atomicResultLinkage($server);
+        $schemas['AtomicResult'] = $this->atomicResultSchema(\array_values(\array_unique([...$adds, ...$updates])), $plainLinkageTypes, $typedLinkage);
         $schemas['AtomicResultsResponse'] = $this->atomicResultsResponseSchema();
     }
 
@@ -1896,17 +1897,61 @@ final class OpenApiProjector
     }
 
     /**
+     * The linkage a relationship operation's result can carry, split by whether its
+     * relation types its identifiers' `meta`: the related types of every relation that
+     * does not, and one schema per relation that does and has a relationship operation
+     * returning its linkage. That schema is the relation's response linkage, so a pivot
+     * relation's members require their `meta.pivot`. A result does not say which
+     * operation produced it, so each typed relation is a branch of its own, and a type
+     * only typed relations link to leaves the shared identifier union.
+     *
+     * @return array{list<string>, list<Schema>}
+     */
+    private function atomicResultLinkage(ServerMetadataInterface $server): array
+    {
+        $plain = [];
+        $typed = [];
+        foreach ($server->types() as $type) {
+            $base = $this->componentBase($type->type());
+            $updatable = $this->allowsOperation($type, OperationType::Update);
+            foreach ($type->relations() as $relation) {
+                $relBase = $base . $this->componentBase($relation->name());
+                if ($this->linkageMetaNarrowing($relation, $relBase, writing: false) === null) {
+                    foreach ($relation->relatedTypes() as $relatedType) {
+                        if (!\in_array($relatedType, $plain, true)) {
+                            $plain[] = $relatedType;
+                        }
+                    }
+                    continue;
+                }
+                $mutable = $relation->allowsReplace() || ($relation->isToMany() && ($relation->allowsAdd() || $relation->allowsRemove()));
+                if (!$updatable || !$relation->exposesRelationshipEndpoint() || RelationFacts::isWriteOnly($relation) || !$mutable) {
+                    continue;
+                }
+                $identifier = $this->linkageIdentifierSchema($relation, $relBase, writing: false);
+                $typed[] = ($relation->isToMany() ? Schema::ofType('array')->withItems($identifier) : $identifier)
+                    ->withDescription(\sprintf('The linkage of the "%s" relationship of the "%s" type.', $relation->name(), $type->type()));
+            }
+        }
+
+        // Kept in the order the request's identifier union lists them.
+        return [\array_values(\array_intersect(self::linkageTypes($server), $plain)), $typed];
+    }
+
+    /**
      * The `AtomicResult` object: one entry of the `atomic:results` array, carrying only
      * `data` and `meta`, and empty for a `remove` or an update the server applied as
      * sent. Its `data` is the resource an `add` or `update` returns, or the linkage a
      * relationship operation returns. Those two overlap, since a resource object with
      * no attributes is also an identifier, so the choice between them is an `anyOf`,
-     * while each is a `oneOf` discriminated by `type`.
+     * while each is a `oneOf` discriminated by `type`. A relation typing its identifiers'
+     * `meta` returns linkage typed as its relationship endpoint's.
      *
      * @param list<string> $resourceTypes the types an `add` or `update` can return
-     * @param list<string> $linkageTypes  the types a relationship's linkage can name
+     * @param list<string> $linkageTypes  the types a relationship's untyped linkage can name
+     * @param list<Schema> $typedLinkage  the linkage of each relation typing its identifiers' `meta`
      */
-    private function atomicResultSchema(array $resourceTypes, array $linkageTypes): Schema
+    private function atomicResultSchema(array $resourceTypes, array $linkageTypes, array $typedLinkage): Schema
     {
         $members = [];
         if ($resourceTypes !== []) {
@@ -1917,6 +1962,7 @@ final class OpenApiProjector
             $members[] = $identifier;
             $members[] = Schema::ofType('array')->withItems($identifier);
         }
+        $members = [...$members, ...$typedLinkage];
         $members[] = Schema::ofType('null');
 
         return Schema::ofType('object')
